@@ -23,7 +23,7 @@ import java.util.Optional;
 public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback, TestWatcher, BeforeEachCallback {
 
     private static ExtentReports extent;
-    private static ExtentTest test;
+    private static final ThreadLocal<ExtentTest> test = new ThreadLocal<>();
 
     /**
      * Returns the current Extent test node for logging.
@@ -31,16 +31,10 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      * @return the active {@link ExtentTest}, or null if not yet initialized
      */
     public static ExtentTest getTest() {
-        return test;
+        return test.get();
     }
 
-    /**
-     * Initializes the Extent report once per test run using configurable settings.
-     *
-     * @param context JUnit extension context
-     */
-    @Override
-    public void beforeAll(ExtensionContext context) {
+    public static void initReport() {
         if (extent == null) {
             String reportPath = TestConfiguration.getProperty("report.path", "target/extent-report.html");
             String reportTitle = TestConfiguration.getProperty("report.title", "JMeter Test Report");
@@ -60,6 +54,29 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
         }
     }
 
+    public static void createTest(String testName) {
+        if (extent != null) {
+            ExtentTest extentTest = extent.createTest(testName);
+            test.set(extentTest);
+        }
+    }
+
+    public static void flushReport() {
+        if (extent != null) {
+            extent.flush();
+        }
+    }
+
+    /**
+     * Initializes the Extent report once per test run using configurable settings.
+     *
+     * @param context JUnit extension context
+     */
+    @Override
+    public void beforeAll(ExtensionContext context) {
+        initReport();
+    }
+
     /**
      * Creates an Extent test node for the current test method.
      *
@@ -67,7 +84,7 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void beforeEach(ExtensionContext context) {
-        test = extent.createTest(context.getDisplayName());
+        createTest(context.getDisplayName());
     }
 
     /**
@@ -78,8 +95,9 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testDisabled(ExtensionContext context, Optional<String> reason) {
-        test = extent.createTest(context.getDisplayName());
-        test.log(Status.SKIP, "Test Disabled: " + reason.orElse("No reason"));
+        ExtentTest extentTest = extent.createTest(context.getDisplayName());
+        test.set(extentTest);
+        getTest().log(Status.SKIP, "Test Disabled: " + reason.orElse("No reason"));
     }
 
     /**
@@ -89,10 +107,11 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testSuccessful(ExtensionContext context) {
-        if (test == null) {
-            test = extent.createTest(context.getDisplayName());
+        if (test.get() == null) {
+            ExtentTest extentTest = extent.createTest(context.getDisplayName());
+            test.set(extentTest);
         }
-        test.log(Status.PASS, "Test Passed");
+        getTest().log(Status.PASS, "Test Passed");
     }
 
     /**
@@ -103,10 +122,11 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testAborted(ExtensionContext context, Throwable cause) {
-        if (test == null) {
-            test = extent.createTest(context.getDisplayName());
+        if (test.get() == null) {
+            ExtentTest extentTest = extent.createTest(context.getDisplayName());
+            test.set(extentTest);
         }
-        test.log(Status.SKIP, "Test Aborted: " + cause.getMessage());
+        getTest().log(Status.SKIP, "Test Aborted: " + cause.getMessage());
     }
 
     /**
@@ -117,11 +137,12 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testFailed(ExtensionContext context, Throwable cause) {
-        if (test == null) {
-            test = extent.createTest(context.getDisplayName());
+        if (test.get() == null) {
+            ExtentTest extentTest = extent.createTest(context.getDisplayName());
+            test.set(extentTest);
         }
-        test.log(Status.FAIL, "Test Failed: " + cause.getMessage());
-        test.fail(cause);
+        getTest().log(Status.FAIL, "Test Failed: " + cause.getMessage());
+        getTest().fail(cause);
     }
 
     /**

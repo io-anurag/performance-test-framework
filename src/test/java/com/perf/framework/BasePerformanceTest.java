@@ -6,6 +6,7 @@ import org.apache.jmeter.testelement.TestElement;
 import org.apache.jmeter.testelement.TestPlan;
 import org.apache.jmeter.threads.ThreadGroup;
 import org.apache.jorphan.collections.HashTree;
+import org.apache.jorphan.collections.ListedHashTree;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,15 +18,15 @@ import org.slf4j.LoggerFactory;
 @ExtendWith(ExtentReportListener.class)
 public abstract class BasePerformanceTest {
     protected static final Logger log = LoggerFactory.getLogger(BasePerformanceTest.class);
-    protected JMeterDriver driver;
+    protected PerformanceTestRunner runner;
 
     /**
-     * Initializes a base test with a ready-to-use {@link JMeterDriver} and reporting extension.
+     * Initializes a base test with a ready-to-use {@link PerformanceTestRunner} and reporting extension.
      * Keeps test classes lightweight by centralizing common setup.
      */
     public BasePerformanceTest() {
         log.info("Initializing BasePerformanceTest...");
-        this.driver = new JMeterDriver();
+        this.runner = new PerformanceTestRunner();
     }
 
     /**
@@ -45,6 +46,7 @@ public abstract class BasePerformanceTest {
      */
     protected ThreadGroup createThreadGroup(int threads, int rampUp, LoopController loopController) {
         ThreadGroup threadGroup = new ThreadGroup();
+        threadGroup.setName("Thread Group");
         threadGroup.setNumThreads(threads);
         threadGroup.setRampUp(rampUp);
         threadGroup.setSamplerController(loopController);
@@ -95,25 +97,14 @@ public abstract class BasePerformanceTest {
      * Executes the test plan and handles errors appropriately.
      *
      * <p>Augments the tree with an ExtentReport listener for unified reporting, then delegates to
-     * {@link JMeterDriver} for execution. Wraps any thrown errors to fail the test with context.</p>
+     * {@link PerformanceTestRunner} for execution. Wraps any thrown errors to fail the test with context.</p>
      *
      * @param testPlanTree The JMeter test plan tree to execute
      * @param testPlanName Name of the test plan for logging
      * @throws RuntimeException if execution fails
      */
     protected void runTest(HashTree testPlanTree, String testPlanName) {
-        // Add Extent Report Listener
-        ExtentReportJMeterListener extentListener = new ExtentReportJMeterListener();
-        testPlanTree.add(testPlanTree.getArray()[0], extentListener);
-
-        try {
-            log.info("Starting Test Execution: {}", testPlanName);
-            driver.runTest(testPlanTree);
-            log.info("Test Execution Finished: {}", testPlanName);
-        } catch (Throwable t) {
-            log.error("Test Execution Failed: {}", testPlanName, t);
-            throw new RuntimeException("JMeter test failed: " + testPlanName, t);
-        }
+        runner.runTest(testPlanTree, testPlanName);
     }
 
     /**
@@ -146,5 +137,49 @@ public abstract class BasePerformanceTest {
      */
     protected String getProperty(String key) {
         return TestConfiguration.getProperty(key);
+    }
+
+    /**
+     * Executes a simple HTTP performance test using the provided configuration.
+     *
+     * @param planName Test plan name
+     * @param domain   Target domain
+     * @param port     Target port
+     * @param path     Request path
+     * @param method   HTTP method
+     * @param threads  Number of threads (users). If null, reads from config.
+     * @param loops    Number of loops per thread. If null, reads from config.
+     * @param rampUp   Ramp-up time in seconds. If null, reads from config.
+     */
+    protected void runHttpTest(String planName, String domain, int port, String path, String method, Integer threads, Integer loops, Integer rampUp) {
+        int finalThreads = (threads != null) ? threads : getIntProperty("threads", 1);
+        int finalLoops = (loops != null) ? loops : getIntProperty("loops", 1);
+        int finalRampUp = (rampUp != null) ? rampUp : getIntProperty("rampUp", 1);
+
+        TestPlan testPlan = createTestPlan(planName);
+        LoopController loopController = createLoopController(finalLoops);
+        ThreadGroup threadGroup = createThreadGroup(finalThreads, finalRampUp, loopController);
+        HTTPSamplerProxy httpSampler = createHttpSampler("Request " + path, domain, port, path, method);
+
+        ListedHashTree testPlanTree = new ListedHashTree();
+        testPlanTree.add(testPlan);
+        HashTree threadGroupHashTree = testPlanTree.add(testPlan, threadGroup);
+        threadGroupHashTree.add(httpSampler);
+
+        runTest(testPlanTree, planName);
+    }
+
+    /**
+     * Executes a simple HTTP performance test using default configuration from properties.
+     *
+     * @param planName Test plan name
+     * @param path     Request path
+     */
+    protected void runHttpTest(String planName, String path) {
+        String domain = getProperty("target.domain", "httpbin.org");
+        int port = getIntProperty("target.port", 80);
+        String method = getProperty("target.method", "GET");
+
+        runHttpTest(planName, domain, port, path, method, null, null, null);
     }
 }

@@ -6,8 +6,10 @@ A robust, configuration-driven performance testing framework that allows you to 
 
 - **Programmatic JMeter Test Creation**: Build and execute JMeter test plans entirely in Java code
 - **JUnit 5 Integration**: Run performance tests as standard JUnit tests with IDE support
+- **Parallel Test Execution**: Tests run concurrently for faster execution
 - **ExtentReports Integration**: Beautiful, interactive HTML reports with detailed test execution information
 - **Configuration-Driven**: Externalize test parameters via properties files for easy environment switching
+- **Flexible Test Configuration**: Support for both global (config file) and local (test method) parameters
 - **Base Test Class Architecture**: Reusable base class with helper methods for rapid test development
 - **Test Lifecycle Hooks**: Execute custom commands before/after test execution
 - **Automatic Report Generation**: Reports are generated automatically after test execution
@@ -30,7 +32,8 @@ jmeter-java-framework/
 │   │   ├── java/com/perf/framework/
 │   │   │   ├── JMeterDriver.java           # Core JMeter execution engine
 │   │   │   ├── JMeterFrameworkException.java
-│   │   │   └── TestConfiguration.java      # Properties reader utility
+│   │   │   ├── TestConfiguration.java      # Properties reader utility
+│   │   │   └── TestPlanFactory.java        # Factory for creating JMeter Test Plans
 │   │   └── resources/
 │   │       ├── config.properties           # Test configuration
 │   │       └── logback.xml                 # Logging configuration
@@ -38,9 +41,14 @@ jmeter-java-framework/
 │       ├── java/com/perf/
 │       │   ├── framework/
 │       │   │   ├── BasePerformanceTest.java      # Abstract base class for tests
-│       │   │   └── ExtentReportListener.java     # Report generation listener
+│       │   │   ├── ExtentReportListener.java     # Report generation listener
+│       │   │   └── ExtentReportJMeterListener.java # JMeter listener for ExtentReports
 │       │   └── tests/
-│       │       └── SampleTest.java               # Example performance test
+│       │       ├── SampleTest.java               # Example performance test
+│       │       ├── SimulationTestWithGlobalDataTest.java # Tests using global config
+│       │       └── SimulationTestWithLocalDataTest.java  # Tests using local parameters
+│       └── resources/
+│           └── junit-platform.properties     # JUnit parallel execution config
 ├── logs/                                    # Test execution logs (auto-created)
 │   ├── test-execution.log                  # Framework and JMeter logs
 │   └── test_result.jtl                     # JMeter test results (CSV)
@@ -76,15 +84,39 @@ After running tests, open the generated report:
 - Simply double-click the file to open in your browser (no server required)
 
 ## Configuration
-
-Edit `src/main/resources/config.properties` to customize your tests:
-
-### Test Configuration
-```properties
-# Target Application
-target.domain=google.com
+httpbin.org
 target.port=80
 target.path=/
+target.method=GET
+
+# Load Parameters (Global Defaults)
+thread.count=1          # Number of virtual users
+loop.count=1            # Iterations per user
+ramp.up=1              # Ramp-up time in seconds
+```
+
+### Writing Tests
+
+You can write tests that use global configuration or override parameters locally.
+
+**Using Global Configuration:**
+```java
+@Test
+@DisplayName("Standard Load Test (Global)")
+void testGlobalConfig() {
+    // Pass null for threads, loops, rampUp to use config.properties values
+    runHttpTest("Global Test", "httpbin.org", 80, "/get", "GET", null, null, null);
+}
+```
+
+**Using Local Parameters:**
+```java
+@Test
+@DisplayName("Stress Test (Local)")
+void testLocalConfig() {
+    // Explicitly define threads=10, loops=5, rampUp=5
+    runHttpTest("Stress Test", "httpbin.org", 80, "/bytes/1024", "GET", 10, 5, 5);
+}
 target.method=GET
 
 # Load Parameters
