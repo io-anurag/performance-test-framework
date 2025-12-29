@@ -19,6 +19,10 @@ public abstract class BasePerformanceTest {
     protected static final Logger log = LoggerFactory.getLogger(BasePerformanceTest.class);
     protected JMeterDriver driver;
 
+    /**
+     * Initializes a base test with a ready-to-use {@link JMeterDriver} and reporting extension.
+     * Keeps test classes lightweight by centralizing common setup.
+     */
     public BasePerformanceTest() {
         log.info("Initializing BasePerformanceTest...");
         this.driver = new JMeterDriver();
@@ -33,6 +37,11 @@ public abstract class BasePerformanceTest {
 
     /**
      * Creates a ThreadGroup with the specified configuration.
+     *
+     * @param threads        number of virtual users
+     * @param rampUp         ramp-up time in seconds
+     * @param loopController loop controller for the group
+     * @return configured thread group
      */
     protected ThreadGroup createThreadGroup(int threads, int rampUp, LoopController loopController) {
         ThreadGroup threadGroup = new ThreadGroup();
@@ -44,6 +53,9 @@ public abstract class BasePerformanceTest {
 
     /**
      * Creates a LoopController with the specified number of loops.
+     *
+     * @param loops number of iterations per thread
+     * @return initialized loop controller
      */
     protected LoopController createLoopController(int loops) {
         LoopController loopController = new LoopController();
@@ -55,6 +67,13 @@ public abstract class BasePerformanceTest {
 
     /**
      * Creates an HTTP Sampler with the specified configuration.
+     *
+     * @param name   sampler name for reporting
+     * @param domain target host (without protocol)
+     * @param port   target port
+     * @param path   request path
+     * @param method HTTP method (e.g., GET, POST)
+     * @return configured HTTP sampler
      */
     protected HTTPSamplerProxy createHttpSampler(String name, String domain, int port, String path, String method) {
         HTTPSamplerProxy httpSampler = new HTTPSamplerProxy();
@@ -74,11 +93,19 @@ public abstract class BasePerformanceTest {
 
     /**
      * Executes the test plan and handles errors appropriately.
-     * 
+     *
+     * <p>Augments the tree with an ExtentReport listener for unified reporting, then delegates to
+     * {@link JMeterDriver} for execution. Wraps any thrown errors to fail the test with context.</p>
+     *
      * @param testPlanTree The JMeter test plan tree to execute
      * @param testPlanName Name of the test plan for logging
+     * @throws RuntimeException if execution fails
      */
     protected void runTest(HashTree testPlanTree, String testPlanName) {
+        // Add Extent Report Listener
+        ExtentReportJMeterListener extentListener = new ExtentReportJMeterListener();
+        testPlanTree.add(testPlanTree.getArray()[0], extentListener);
+
         try {
             log.info("Starting Test Execution: {}", testPlanName);
             driver.runTest(testPlanTree);
@@ -91,6 +118,10 @@ public abstract class BasePerformanceTest {
 
     /**
      * Reads an integer property from config, with a default value.
+     *
+     * @param key          property key
+     * @param defaultValue value to use when the property is absent
+     * @return integer value or the default
      */
     protected int getIntProperty(String key, int defaultValue) {
         return TestConfiguration.getIntProperty(key, defaultValue);
@@ -98,6 +129,10 @@ public abstract class BasePerformanceTest {
 
     /**
      * Reads a string property from config, with a default value.
+     *
+     * @param key          property key
+     * @param defaultValue value to use when the property is absent
+     * @return configured value or the default
      */
     protected String getProperty(String key, String defaultValue) {
         return TestConfiguration.getProperty(key, defaultValue);
@@ -105,6 +140,9 @@ public abstract class BasePerformanceTest {
 
     /**
      * Reads a string property from config.
+     *
+     * @param key property key
+     * @return configured value or {@code null} if missing
      */
     protected String getProperty(String key) {
         return TestConfiguration.getProperty(key);

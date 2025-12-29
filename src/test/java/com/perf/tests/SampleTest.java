@@ -14,6 +14,13 @@ import org.junit.jupiter.api.Test;
  */
 class SampleTest extends BasePerformanceTest {
 
+    /**
+     * Builds a minimal HTTP JMeter plan from configuration and executes it.
+     *
+     * <p>Reads the following properties (with defaults in parentheses):
+     * test.plan.name (Java_Test_Plan), target.domain, target.port (80),
+     * target.path (/), target.method (GET), thread.count (1), loop.count (1), ramp.up (1).</p>
+     */
     @Test
     void runJMeterTest() {
         log.info("Reading configuration...");

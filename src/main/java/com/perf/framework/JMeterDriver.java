@@ -13,10 +13,30 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Driver for configuring and executing Apache JMeter test plans programmatically.
+ *
+ * <p>Responsibilities:
+ * <ul>
+ *   <li>Ensure JMeter is bootstrapped even when no JMETER_HOME is provided (e.g., CI/IDE runs).</li>
+ *   <li>Load JMeter properties and locale before engine creation to avoid initialization warnings.</li>
+ *   <li>Run a supplied JMeter HashTree and persist results to a JTL file.</li>
+ * </ul>
+ *
+ * <p>This class intentionally creates a minimal, temporary JMeter home with a baseline
+ * jmeter.properties when the jmeter.home system property is missing so tests can run without
+ * a full JMeter installation.</p>
+ */
 public class JMeterDriver {
     private static final Logger log = LoggerFactory.getLogger(JMeterDriver.class);
     private StandardJMeterEngine jmeter;
 
+    /**
+     * Constructs the driver and initializes JMeter before creating the engine.
+     *
+     * <p>Initialization order matters: JMeter properties are loaded prior to engine
+     * construction to prevent null appProperties and other bootstrap issues.</p>
+     */
     public JMeterDriver() {
         log.info("Initializing JMeterDriver...");
         initJMeter(); // Initialize JMeter properties BEFORE creating engine
@@ -24,6 +44,15 @@ public class JMeterDriver {
         log.info("JMeterDriver Initialized.");
     }
 
+    /**
+     * Initializes JMeter configuration and environment.
+     *
+     * <p>If {@code jmeter.home} is not defined, a temporary directory is created with a minimal
+     * {@code bin/jmeter.properties} to allow the engine to start cleanly in ephemeral environments.
+     * Ensures properties and locale are loaded to avoid initialization warnings.</p>
+     *
+     * @throws JMeterFrameworkException if a temporary JMeter home cannot be created
+     */
     private void initJMeter() {
         // We need to set JMeter home so it can find properties
         String jmeterHome = System.getProperty("jmeter.home");
@@ -77,6 +106,16 @@ public class JMeterDriver {
         log.info("JMeter properties loaded from: {}", propsFile.getAbsolutePath());
     }
 
+    /**
+     * Executes the provided JMeter test plan tree.
+     *
+     * <p>Adds an optional {@link org.apache.jmeter.reporters.Summariser} based on the
+     * {@code summariser.name} property and a {@link org.apache.jmeter.reporters.ResultCollector}
+     * that writes CSV results to {@code logs/test_result.jtl}. The result collector is attached
+     * to the root of the supplied tree before configuring and running the engine.</p>
+     *
+     * @param testPlanTree fully assembled JMeter test plan tree to execute
+     */
     public void runTest(HashTree testPlanTree) {
         log.info("Starting test execution...");
 
