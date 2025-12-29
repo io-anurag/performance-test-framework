@@ -2,11 +2,24 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.perf</groupId>
-  <artifactId>jmeter-java-framework</artifactId>
+  <artifactId>performance-test-framework</artifactId>
   <packaging>jar</packaging>
   <version>1.0-SNAPSHOT</version>
-  <name>jmeter-java-framework</name>
+  <name>performance-test-framework</name>
   <url>http://maven.apache.org</url>
+  <description>A Java-based performance testing framework using Apache JMeter. This framework enables configurable and executable JMeter tests directly from an IDE with ExtentReports integration for comprehensive test reporting.</description>
+
+  <developers>
+    <developer>
+      <id>io-anurag</id>
+      <name>Anurag Singh</name>
+      <email>anuragsngh16@gmail.com</email>
+      <roles>
+        <role>Developer</role>
+      </roles>
+      <timezone>Asia/Kolkata</timezone>
+    </developer>
+  </developers>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
