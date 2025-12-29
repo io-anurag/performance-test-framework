@@ -12,6 +12,8 @@ A robust, configuration-driven performance testing framework that allows you to 
 - **Test Lifecycle Hooks**: Execute custom commands before/after test execution
 - **Automatic Report Generation**: Reports are generated automatically after test execution
 - **Theme Support**: Standard and Dark theme options for reports
+- **Comprehensive Logging**: Logback-based logging with file output to `logs/` directory
+- **Clean Log Management**: Log files are automatically overwritten on each test run for clean results
 
 ## Prerequisites
 
@@ -30,7 +32,8 @@ jmeter-java-framework/
 │   │   │   ├── JMeterFrameworkException.java
 │   │   │   └── TestConfiguration.java      # Properties reader utility
 │   │   └── resources/
-│   │       └── config.properties           # Test configuration
+│   │       ├── config.properties           # Test configuration
+│   │       └── logback.xml                 # Logging configuration
 │   └── test/
 │       ├── java/com/perf/
 │       │   ├── framework/
@@ -38,6 +41,9 @@ jmeter-java-framework/
 │       │   │   └── ExtentReportListener.java     # Report generation listener
 │       │   └── tests/
 │       │       └── SampleTest.java               # Example performance test
+├── logs/                                    # Test execution logs (auto-created)
+│   ├── test-execution.log                  # Framework and JMeter logs
+│   └── test_result.jtl                     # JMeter test results (CSV)
 ├── pom.xml
 └── README.md
 ```
@@ -198,7 +204,62 @@ The framework automatically generates ExtentReports after test execution:
 ### JMeter Results
 
 Raw JMeter results are saved to:
-- `test_result.jtl` (CSV format)
+- **Location**: `logs/test_result.jtl` (CSV format)
+- This file contains detailed sampler results and can be imported into JMeter GUI for visualization
+
+## Logging
+
+### Log Files
+
+The framework uses Logback for comprehensive logging:
+
+- **Framework Logs**: `logs/test-execution.log`
+  - Contains all framework and JMeter execution logs
+  - Includes timestamps, thread information, and log levels
+  - **Automatically overwritten** on each test run for clean results
+  
+- **JMeter Results**: `logs/test_result.jtl`
+  - CSV format with detailed test execution metrics
+  - Can be imported into JMeter GUI for analysis
+  - **Automatically overwritten** on each test run
+
+### Log Configuration
+
+Logging is configured in `src/main/resources/logback.xml`:
+
+```xml
+<configuration>
+    <!-- Console output -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File output (overwrites on each run) -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/test-execution.log</file>
+        <append>false</append>  <!-- Overwrite mode -->
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+</configuration>
+```
+
+### Customizing Logs
+
+To modify logging behavior:
+
+1. **Change log level**: Edit `<root level="INFO">` to `DEBUG`, `WARN`, or `ERROR`
+2. **Change log file location**: Modify `<file>logs/test-execution.log</file>`
+3. **Enable append mode**: Change `<append>false</append>` to `<append>true</append>`
+4. **Customize format**: Edit the `<pattern>` element
 
 ## Advanced Features
 
@@ -256,8 +317,14 @@ jobs:
 - Verify `ExtentReportListener` is registered on test class
 
 ### JMeter Initialization Errors
-- Check that `jmeter.home` system property is set (framework sets this automatically)
+- The framework automatically handles JMeter home directory creation and property initialization
+- JMeter properties are loaded before the engine is created to prevent initialization warnings
 - Ensure all JMeter dependencies are downloaded by Maven
+
+### Missing Log Files
+- Log files are created in the `logs/` directory automatically
+- If the directory doesn't exist, it will be created on first test run
+- Check file permissions if logs aren't being written
 
 ## Contributing
 

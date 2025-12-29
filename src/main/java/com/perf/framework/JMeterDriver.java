@@ -19,8 +19,8 @@ public class JMeterDriver {
 
     public JMeterDriver() {
         log.info("Initializing JMeterDriver...");
+        initJMeter(); // Initialize JMeter properties BEFORE creating engine
         this.jmeter = new StandardJMeterEngine();
-        initJMeter();
         log.info("JMeterDriver Initialized.");
     }
 
@@ -39,7 +39,23 @@ public class JMeterDriver {
                 Files.createDirectories(binDir);
                 Path propsFile = binDir.resolve("jmeter.properties");
                 if (!Files.exists(propsFile)) {
-                    Files.writeString(propsFile, "jmeter.save.saveservice.output_format=csv\n");
+                    // Create comprehensive jmeter.properties to avoid initialization warnings
+                    String properties = """
+                            # JMeter Properties
+                            jmeter.save.saveservice.output_format=csv
+
+                            # Engine properties to avoid null appProperties warnings
+                            server.exitaftertest=false
+                            jmeterengine.remote.system.exit=false
+                            jmeterengine.stopfail.system.exit=true
+                            jmeterengine.force.system.exit=false
+
+                            # Additional recommended properties
+                            jmeterengine.nongui.port=4445
+                            jmeter.reportgenerator.apdex_satisfied_threshold=500
+                            jmeter.reportgenerator.apdex_tolerated_threshold=1500
+                            """;
+                    Files.writeString(propsFile, properties);
                 }
             } catch (IOException e) {
                 throw new JMeterFrameworkException("Failed to create temp JMeter home", e);
@@ -52,7 +68,12 @@ public class JMeterDriver {
 
         JMeterUtils.setJMeterHome(jmeterHome);
         JMeterUtils.loadJMeterProperties(propsFile.getAbsolutePath());
+
+        // Initialize JMeter properties to avoid null appProperties warnings
+        // This ensures appProperties is properly set before any property access
+        JMeterUtils.getJMeterProperties();
         JMeterUtils.initLocale();
+
         log.info("JMeter properties loaded from: {}", propsFile.getAbsolutePath());
     }
 
@@ -67,7 +88,7 @@ public class JMeterDriver {
         }
 
         // Store execution results into a .jtl file (csv)
-        String logFile = "test_result.jtl";
+        String logFile = "logs/test_result.jtl";
         ResultCollector logger = new ResultCollector(summer);
         logger.setFilename(logFile);
 
