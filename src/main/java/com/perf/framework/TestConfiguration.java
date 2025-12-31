@@ -45,6 +45,10 @@ public class TestConfiguration {
      * @return property value, or {@code null} when not defined
      */
     public static String getProperty(String key) {
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) {
+            return sys;
+        }
         return properties.getProperty(key);
     }
 
@@ -56,7 +60,17 @@ public class TestConfiguration {
      * @return the configured value or {@code defaultValue}
      */
     public static String getProperty(String key, String defaultValue) {
-        return properties.getProperty(key, defaultValue);
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) {
+            return sys;
+        }
+
+        String val = properties.getProperty(key);
+        if (val != null && !val.isEmpty()) {
+            return val;
+        }
+
+        return defaultValue;
     }
 
     /**
@@ -67,6 +81,10 @@ public class TestConfiguration {
      * @throws NumberFormatException if the property is missing or not a valid integer
      */
     public static int getIntProperty(String key) {
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) {
+            return Integer.parseInt(sys);
+        }
         return Integer.parseInt(properties.getProperty(key));
     }
 
@@ -79,9 +97,14 @@ public class TestConfiguration {
      * @throws NumberFormatException if the property exists but is not a valid integer
      */
     public static int getIntProperty(String key, int defaultValue) {
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) {
+            return Integer.parseInt(sys);
+        }
         String val = properties.getProperty(key);
-        if (val == null)
-            return defaultValue;
-        return Integer.parseInt(val);
+        if (val != null && !val.isEmpty()) {
+            return Integer.parseInt(val);
+        }
+        return defaultValue;
     }
 }

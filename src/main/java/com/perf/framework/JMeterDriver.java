@@ -8,34 +8,47 @@ import org.apache.jorphan.collections.HashTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Driver for configuring and executing Apache JMeter test plans programmatically.
+ * Driver for configuring and executing Apache JMeter test plans
+ * programmatically.
  *
- * <p>Responsibilities:
+ * <p>
+ * Responsibilities:
  * <ul>
- *   <li>Ensure JMeter is bootstrapped even when no JMETER_HOME is provided (e.g., CI/IDE runs).</li>
- *   <li>Load JMeter properties and locale before engine creation to avoid initialization warnings.</li>
- *   <li>Run a supplied JMeter HashTree and persist results to a JTL file.</li>
+ * <li>Ensure JMeter is bootstrapped even when no JMETER_HOME is provided (e.g.,
+ * CI/IDE runs).</li>
+ * <li>Load JMeter properties and locale before engine creation to avoid
+ * initialization warnings.</li>
+ * <li>Run a supplied JMeter HashTree and persist results to a JTL file.</li>
  * </ul>
  *
- * <p>This class intentionally creates a minimal, temporary JMeter home with a baseline
- * jmeter.properties when the jmeter.home system property is missing so tests can run without
- * a full JMeter installation.</p>
+ * <p>
+ * This class intentionally creates a minimal, temporary JMeter home with a
+ * baseline
+ * jmeter.properties when the jmeter.home system property is missing so tests
+ * can run without
+ * a full JMeter installation.
+ * </p>
  */
 public class JMeterDriver {
     private static final Logger log = LoggerFactory.getLogger(JMeterDriver.class);
+    private static final AtomicBoolean JTL_INITIALIZED = new AtomicBoolean(false);
     private StandardJMeterEngine jmeter;
 
     /**
      * Constructs the driver and initializes JMeter before creating the engine.
      *
-     * <p>Initialization order matters: JMeter properties are loaded prior to engine
-     * construction to prevent null appProperties and other bootstrap issues.</p>
+     * <p>
+     * Initialization order matters: JMeter properties are loaded prior to engine
+     * construction to prevent null appProperties and other bootstrap issues.
+     * </p>
      */
     public JMeterDriver() {
         log.info("Initializing JMeterDriver...");
@@ -47,9 +60,13 @@ public class JMeterDriver {
     /**
      * Initializes JMeter configuration and environment.
      *
-     * <p>If {@code jmeter.home} is not defined, a temporary directory is created with a minimal
-     * {@code bin/jmeter.properties} to allow the engine to start cleanly in ephemeral environments.
-     * Ensures properties and locale are loaded to avoid initialization warnings.</p>
+     * <p>
+     * If {@code jmeter.home} is not defined, a temporary directory is created with
+     * a minimal
+     * {@code bin/jmeter.properties} to allow the engine to start cleanly in
+     * ephemeral environments.
+     * Ensures properties and locale are loaded to avoid initialization warnings.
+     * </p>
      *
      * @throws JMeterFrameworkException if a temporary JMeter home cannot be created
      */
@@ -109,32 +126,92 @@ public class JMeterDriver {
     /**
      * Executes the provided JMeter test plan tree.
      *
-     * <p>Adds an optional {@link org.apache.jmeter.reporters.Summariser} based on the
-     * {@code summariser.name} property and a {@link org.apache.jmeter.reporters.ResultCollector}
-     * that writes CSV results to {@code logs/test_result.jtl}. The result collector is attached
-     * to the root of the supplied tree before configuring and running the engine.</p>
+     * <p>
+     * Adds an optional {@link org.apache.jmeter.reporters.Summariser} based on the
+     * {@code summariser.name} property and a
+     * {@link org.apache.jmeter.reporters.ResultCollector}
+     * that writes CSV results to {@code logs/test_result.jtl}. The result collector
+     * is attached
+     * to the root of the supplied tree before configuring and running the engine.
+     * </p>
      *
      * @param testPlanTree fully assembled JMeter test plan tree to execute
      */
-    public void runTest(HashTree testPlanTree) {
-        log.info("Starting test execution...");
+    public void runTest(HashTree testPlanTree, String testPlanName) {
+        log.info("Starting test execution for plan: {}", testPlanName);
 
-        // Add a summariser
+        Path jtlPath = resolveJtlPath();
+        prepareLogFile(jtlPath);
+        ResultCollector logger = createResultCollector(jtlPath.toString());
+
+        testPlanTree.add(testPlanTree.getArray()[0], logger);
+
+        jmeter.configure(testPlanTree);
+        jmeter.run();
+        log.info("Test execution completed for plan: {}. Results written to {}", testPlanName, jtlPath.toAbsolutePath());
+    }
+
+    /**
+     * Ensure a clean output destination for the JTL results.
+     *
+     * <p>
+     * Deletes any pre-existing JTL file to avoid appending stale data and creates
+     * the logs directory when missing so the result collector can write
+     * successfully.
+     * </p>
+     *
+     * @param jtlFile target results file to prepare
+     */
+    private void prepareLogFile(Path jtlPath) {
+        if (JTL_INITIALIZED.compareAndSet(false, true)) {
+            try {
+                if (Files.deleteIfExists(jtlPath)) {
+                    log.info("Deleted existing JTL file: {}", jtlPath.toAbsolutePath());
+                }
+            } catch (IOException e) {
+                log.warn("Failed to delete existing JTL file: {}", jtlPath.toAbsolutePath(), e);
+            }
+        }
+
+        try {
+            Path parent = jtlPath.getParent();
+            if (parent != null && !Files.exists(parent)) {
+                Files.createDirectories(parent);
+                log.info("Created logs directory: {}", parent.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            throw new JMeterFrameworkException("Failed to prepare logs directory for JTL output", e);
+        }
+    }
+
+    private Path resolveJtlPath() {
+        String configured = TestConfiguration.getProperty("jtl.path");
+        String path = (configured != null && !configured.isBlank()) ? configured : "logs/test_result.jtl";
+        return Paths.get(path);
+    }
+
+    /**
+     * Create a ResultCollector configured with an optional Summariser and the
+     * provided log path.
+     *
+     * <p>
+     * The summariser name is sourced from the {@code summariser.name} property. If
+     * present, a {@link Summariser} is attached; otherwise results are collected
+     * without summarisation. The collector writes to the supplied CSV path.
+     * </p>
+     *
+     * @param logFilePath path to the JTL/CSV results file
+     * @return configured ResultCollector instance ready to attach to the test plan
+     */
+    private ResultCollector createResultCollector(String logFilePath) {
         Summariser summer = null;
         String summariserName = JMeterUtils.getPropDefault("summariser.name", "summary");
         if (!summariserName.isEmpty()) {
             summer = new Summariser(summariserName);
         }
 
-        // Store execution results into a .jtl file (csv)
-        String logFile = "logs/test_result.jtl";
         ResultCollector logger = new ResultCollector(summer);
-        logger.setFilename(logFile);
-
-        testPlanTree.add(testPlanTree.getArray()[0], logger);
-
-        jmeter.configure(testPlanTree);
-        jmeter.run();
-        log.info("Test execution completed.");
+        logger.setFilename(logFilePath);
+        return logger;
     }
 }

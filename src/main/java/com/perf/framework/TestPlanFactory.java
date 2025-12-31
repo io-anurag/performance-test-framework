@@ -22,7 +22,7 @@ public class TestPlanFactory {
      *
      * @param planName name for the JMeter TestPlan
      * @param domain   target host (without protocol)
-     * @param port     target port
+    * @param port     target port (null to use default)
      * @param path     request path
      * @param method   HTTP method (e.g., GET, POST)
      * @param threads  number of virtual users
@@ -32,7 +32,7 @@ public class TestPlanFactory {
     public record SimpleTestPlanConfig(
             String planName,
             String domain,
-            int port,
+            Integer port,
             String path,
             String method,
             int threads,
@@ -51,17 +51,34 @@ public class TestPlanFactory {
     public static HashTree createSimpleHttpPlan(SimpleTestPlanConfig config) {
         TestPlan testPlan = createTestPlan(config.planName());
         LoopController loopController = createLoopController(config.loops());
-        ThreadGroup threadGroup = createThreadGroup(config.threads(), config.rampUp(), loopController);
-        HTTPSamplerProxy httpSampler = createHttpSampler(config.domain(), config.port(), config.path(), config.method());
+        String threadGroupName = config.planName() + " Thread Group";
+        ThreadGroup threadGroup = createThreadGroup(threadGroupName, config.threads(), config.rampUp(), loopController);
+        HTTPSamplerProxy httpSampler = createHttpSampler("Request " + config.domain() + config.path(),
+            config.domain(), config.port(), config.path(), config.method());
 
         return buildTestPlanTree(testPlan, threadGroup, httpSampler);
     }
 
-    private static TestPlan createTestPlan(String planName) {
+    /**
+     * Create a TestPlan with the given name.
+     *
+     * @param planName name for the plan root element
+     * @return a new TestPlan instance
+     */
+    public static TestPlan createTestPlan(String planName) {
         return new TestPlan(planName);
     }
 
-    private static LoopController createLoopController(int loops) {
+    /**
+     * Create and initialize a LoopController for the desired iteration count.
+     *
+     * <p>Initialization is explicitly invoked to ensure internal state is prepared
+     * before attaching to a ThreadGroup.</p>
+     *
+     * @param loops number of iterations per thread
+     * @return an initialized LoopController
+     */
+    public static LoopController createLoopController(int loops) {
         LoopController loopController = new LoopController();
         loopController.setLoops(loops);
         loopController.setFirst(true);
@@ -69,27 +86,68 @@ public class TestPlanFactory {
         return loopController;
     }
 
-    private static ThreadGroup createThreadGroup(int threads, int rampUp, LoopController loopController) {
+    /**
+     * Build a ThreadGroup wired to the provided LoopController.
+     *
+     * <p>Sets thread count and ramp-up to control concurrency and arrival rate.</p>
+     *
+     * @param threads       number of virtual users
+     * @param rampUp        ramp-up time in seconds
+     * @param loopController controller managing per-thread iterations
+     * @return configured ThreadGroup
+     */
+    public static ThreadGroup createThreadGroup(int threads, int rampUp, LoopController loopController) {
+        return createThreadGroup("Thread Group", threads, rampUp, loopController);
+    }
+
+    public static ThreadGroup createThreadGroup(String name, int threads, int rampUp, LoopController loopController) {
         ThreadGroup threadGroup = new ThreadGroup();
-        threadGroup.setName("Thread Group");
+        threadGroup.setName(name);
         threadGroup.setNumThreads(threads);
         threadGroup.setRampUp(rampUp);
         threadGroup.setSamplerController(loopController);
         return threadGroup;
     }
 
-    private static HTTPSamplerProxy createHttpSampler(String domain, int port, String path, String method) {
+    /**
+     * Create an HTTP sampler for the provided target and method.
+     *
+     * <p>Also sets TEST_CLASS and GUI_CLASS to maintain compatibility with JMeter's
+     * serialization and GUI metadata expectations.</p>
+     *
+     * @param domain target host (without protocol)
+     * @param port   target port
+     * @param path   request path
+     * @param method HTTP method (e.g., GET, POST)
+     * @return configured HTTPSamplerProxy
+     */
+    public static HTTPSamplerProxy createHttpSampler(String samplerName, String domain, String path, String method) {
+        return createHttpSampler(samplerName, domain, (Integer) null, path, method);
+    }
+
+    public static HTTPSamplerProxy createHttpSampler(String samplerName, String domain, Integer port, String path, String method) {
         HTTPSamplerProxy httpSampler = new HTTPSamplerProxy();
         httpSampler.setDomain(domain);
-        httpSampler.setPort(port);
+        int resolvedPort = (port == null) ? -1 : port;
+        httpSampler.setPort(resolvedPort);
         httpSampler.setPath(path);
         httpSampler.setMethod(method);
-        httpSampler.setName("Request " + domain + path);
+        httpSampler.setName(samplerName);
         httpSampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
         httpSampler.setProperty(TestElement.GUI_CLASS, HttpTestSampleGui.class.getName());
         return httpSampler;
     }
 
+    /**
+     * Assemble the JMeter test plan tree from its core components.
+     *
+     * <p>Structure: {@code TestPlan → ThreadGroup → HTTPSampler}.</p>
+     *
+     * @param testPlan    root plan element
+     * @param threadGroup group controlling thread execution
+     * @param httpSampler sampler to execute
+     * @return a HashTree representing the full plan
+     */
     private static HashTree buildTestPlanTree(TestPlan testPlan, ThreadGroup threadGroup, HTTPSamplerProxy httpSampler) {
         ListedHashTree testPlanTree = new ListedHashTree();
         testPlanTree.add(testPlan);

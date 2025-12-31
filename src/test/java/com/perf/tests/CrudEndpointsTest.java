@@ -1,7 +1,9 @@
 package com.perf.tests;
 
 import com.perf.framework.BasePerformanceTest;
+import com.perf.framework.TestConfiguration;
 import com.perf.framework.TestContext;
+import com.perf.framework.TestPlanFactory;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
 import org.apache.jmeter.protocol.http.util.HTTPArgument;
 import org.junit.jupiter.api.DisplayName;
@@ -19,8 +21,8 @@ class CrudEndpointsTest extends BasePerformanceTest {
         startSuite("CRUD Test Suite");
 
         TestContext ctx = createSuiteThreadGroup("CRUD Users", 2, 1, 1);
-        String domain = getProperty("target.domain", "gorest.co.in");
-        String createPath = "/public/v2/users";
+        String domain = TestConfiguration.getProperty("target.domain");
+        String createPath = TestConfiguration.getProperty("target.path");
 
         // 1. Read Create Payload
         String createPayload = loadPayload("create_user.json");
@@ -28,7 +30,7 @@ class CrudEndpointsTest extends BasePerformanceTest {
         createPayload = createPayload.replace("test_user_placeholder@example.com",
                 "crud_user_" + System.currentTimeMillis() + "@example.com");
 
-        HTTPSamplerProxy createRequest = createHttpSampler("Create User", domain, createPath, "POST");
+        HTTPSamplerProxy createRequest = TestPlanFactory.createHttpSampler("Create User", domain, createPath, "POST");
         createRequest.setPostBodyRaw(true);
         createRequest.getArguments().addArgument(new HTTPArgument("", createPayload, "", false));
         ctx.getThreadGroupTree().add(createRequest);

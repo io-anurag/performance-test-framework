@@ -1,6 +1,7 @@
 package com.perf.tests;
 
 import com.perf.framework.BasePerformanceTest;
+import com.perf.framework.TestConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.Test;
 @Tag("performance")
 class SimulationTestWithLocalDataTest extends BasePerformanceTest {
 
+    private static final String TARGET_DOMAIN = resolveTargetDomain();
+
     /**
      * Simulates a standard load test:
      * Moderate concurrency (10 users) ramping up over 5 seconds.
@@ -21,10 +24,9 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @Test()
     @DisplayName("Standard Load Test - httpbin.org/get")
     void testStandardLoadProfile() {
-        String targetDomain = getProperty("target.domain", "httpbin.org");
         String planName = "Standard Load Test - httpbin.org/get";
 
-        runHttpTest(planName, targetDomain, "/get", "GET", 10, 5, 5);
+        runSimpleHttpPlan(planName, TARGET_DOMAIN, "/get", "GET", 10, 5, 5);
     }
 
     /**
@@ -36,10 +38,9 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @Test
     @DisplayName("Spike Test - httpbin.org/ip")
     void testSpikeTrafficProfile() {
-        String targetDomain = getProperty("target.domain", "httpbin.org");
         String planName = "Spike Test - httpbin.org/ip";
 
-        runHttpTest(planName, targetDomain, "/ip", "GET", 20, 1, 1);
+        runSimpleHttpPlan(planName, TARGET_DOMAIN, "/ip", "GET", 20, 1, 1);
     }
 
     /**
@@ -51,10 +52,9 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @Test
     @DisplayName("Latency Test - httpbin.org/delay/2")
     void testSlowResponseHandling() {
-        String targetDomain = getProperty("target.domain", "httpbin.org");
         String planName = "Latency Test - httpbin.org/delay/2";
 
-        runHttpTest(planName, targetDomain, "/delay/2", "GET", 5, 1, 2);
+        runSimpleHttpPlan(planName, TARGET_DOMAIN, "/delay/2", "GET", 5, 1, 2);
     }
 
     /**
@@ -66,9 +66,17 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @DisplayName("Stress Test - httpbin.org/bytes/1024")
     @Test
     void testStressProfile() {
-        String targetDomain = getProperty("target.domain", "httpbin.org");
         String planName = "Stress Test - httpbin.org/bytes/1024";
 
-        runHttpTest(planName, targetDomain, "/bytes/1024", "GET", 15, 10, 5);
+        runSimpleHttpPlan(planName, TARGET_DOMAIN, "/bytes/1024", "GET", 15, 10, 5);
+    }
+
+    private static String resolveTargetDomain() {
+        // Prefer an override provided at runtime; otherwise default to local/httpbin.
+        String sys = System.getProperty("target.domain");
+        if (sys != null && !sys.isEmpty()) {
+            return sys;
+        }
+        return "httpbin.org";
     }
 }

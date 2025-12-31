@@ -42,7 +42,6 @@ public class ExtentReportJMeterListener extends ResultCollector {
         ExtentReportListener.getTest().info(MarkupHelper.createLabel("Detailed Execution Log", ExtentColor.TEAL));
         ExtentReportListener.getTest().info(tableHtml);
 
-        // Log final status based on failures
         boolean hasFailure = resultsBuffer.stream().anyMatch(r -> !r.isSuccessful());
         if (hasFailure) {
             ExtentReportListener.getTest().log(Status.FAIL, "Test Completed with Failures");

@@ -40,7 +40,7 @@ public class PerformanceTestRunner {
 
         try {
             log.info("Starting Test Execution: {}", testPlanName);
-            driver.runTest(testPlanTree);
+            driver.runTest(testPlanTree, testPlanName);
 
             // Allow time for async results if any, then flush
             extentListener.flush();

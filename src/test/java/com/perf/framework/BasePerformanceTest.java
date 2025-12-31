@@ -31,71 +31,8 @@ public abstract class BasePerformanceTest {
      * Keeps test classes lightweight by centralizing common setup.
      */
     public BasePerformanceTest() {
-        log.info("Initializing BasePerformanceTest...");
+        log.info("Initializing Base Performance Test...");
         this.runner = new PerformanceTestRunner();
-    }
-
-    /**
-     * Creates a JMeter TestPlan with the specified name.
-     */
-    protected TestPlan createTestPlan(String name) {
-        return new TestPlan(name);
-    }
-
-    /**
-     * Creates a ThreadGroup with the specified configuration.
-     *
-     * @param threads        number of virtual users
-     * @param rampUp         ramp-up time in seconds
-     * @param loopController loop controller for the group
-     * @return configured thread group
-     */
-    protected ThreadGroup createThreadGroup(int threads, int rampUp, LoopController loopController) {
-        ThreadGroup threadGroup = new ThreadGroup();
-        threadGroup.setName("Thread Group");
-        threadGroup.setNumThreads(threads);
-        threadGroup.setRampUp(rampUp);
-        threadGroup.setSamplerController(loopController);
-        return threadGroup;
-    }
-
-    /**
-     * Creates a LoopController with the specified number of loops.
-     *
-     * @param loops number of iterations per thread
-     * @return initialized loop controller
-     */
-    protected LoopController createLoopController(int loops) {
-        LoopController loopController = new LoopController();
-        loopController.setLoops(loops);
-        loopController.setFirst(true);
-        loopController.initialize();
-        return loopController;
-    }
-
-    /**
-     * Creates an HTTP Sampler with the specified configuration.
-     *
-     * @param name   sampler name for reporting
-     * @param domain target host (without protocol)
-     * @param port   target port
-     * @param path   request path
-     * @param method HTTP method (e.g., GET, POST)
-     * @return configured HTTP sampler
-     */
-    public HTTPSamplerProxy createHttpSampler(String name, String domain, String path, String method) {
-        HTTPSamplerProxy httpSampler = new HTTPSamplerProxy();
-        httpSampler.setDomain(domain);
-        httpSampler.setPath(path);
-        httpSampler.setMethod(method);
-        httpSampler.setName(name);
-
-        // Set required properties for the sampler
-        httpSampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
-        httpSampler.setProperty(TestElement.GUI_CLASS,
-                org.apache.jmeter.protocol.http.control.gui.HttpTestSampleGui.class.getName());
-
-        return httpSampler;
     }
 
     /**
@@ -117,75 +54,38 @@ public abstract class BasePerformanceTest {
     }
 
     /**
-     * Reads an integer property from config, with a default value.
-     *
-     * @param key          property key
-     * @param defaultValue value to use when the property is absent
-     * @return integer value or the default
+     * Builds and runs a simple single-sampler HTTP plan using provided or defaulted concurrency settings.
      */
-    protected int getIntProperty(String key, int defaultValue) {
-        return TestConfiguration.getIntProperty(key, defaultValue);
-    }
-
-    /**
-     * Reads a string property from config, with a default value.
-     *
-     * @param key          property key
-     * @param defaultValue value to use when the property is absent
-     * @return configured value or the default
-     */
-    protected String getProperty(String key, String defaultValue) {
-        return TestConfiguration.getProperty(key, defaultValue);
-    }
-
-    /**
-     * Reads a string property from config.
-     *
-     * @param key property key
-     * @return configured value or {@code null} if missing
-     */
-    protected String getProperty(String key) {
-        return TestConfiguration.getProperty(key);
-    }
-
-    /**
-     * Executes a simple HTTP performance test using the provided configuration.
-     *
-     * @param planName Test plan name
-     * @param domain   Target domain
-     * @param port     Target port
-     * @param path     Request path
-     * @param method   HTTP method
-     * @param threads  Number of threads (users). If null, reads from config.
-     * @param loops    Number of loops per thread. If null, reads from config.
-     * @param rampUp   Ramp-up time in seconds. If null, reads from config.
-     */
-    protected void runHttpTest(String planName, String domain, String path, String method, Integer threads,
+    protected void runSimpleHttpPlan(String planName, String domain, String path, String method, Integer threads,
             Integer loops, Integer rampUp) {
-        int finalThreads = (threads != null) ? threads : getIntProperty("threads", 1);
-        int finalLoops = (loops != null) ? loops : getIntProperty("loops", 1);
-        int finalRampUp = (rampUp != null) ? rampUp : getIntProperty("rampUp", 1);
+        HashTree planTree = buildSimpleHttpPlan(planName, domain, path, method, threads, loops, rampUp);
+        runTest(planTree, planName);
+    }
 
-        TestPlan testPlan = createTestPlan(planName);
-        LoopController loopController = createLoopController(finalLoops);
-        ThreadGroup threadGroup = createThreadGroup(finalThreads, finalRampUp, loopController);
-        HTTPSamplerProxy httpSampler = createHttpSampler("Request " + path, domain, path, method);
+    /**
+     * Build a minimal TestPlan → ThreadGroup → HTTP Sampler tree for a single request.
+     */
+    protected HashTree buildSimpleHttpPlan(String planName, String domain, String path, String method, Integer threads,
+            Integer loops, Integer rampUp) {
+        int finalThreads = (threads != null) ? threads : TestConfiguration.getIntProperty("threads", 1);
+        int finalLoops = (loops != null) ? loops : TestConfiguration.getIntProperty("loops", 1);
+        int finalRampUp = (rampUp != null) ? rampUp : TestConfiguration.getIntProperty("rampUp", 1);
+
+        TestPlan testPlan = TestPlanFactory.createTestPlan(planName);
+        LoopController loopController = TestPlanFactory.createLoopController(finalLoops);
+        ThreadGroup threadGroup = TestPlanFactory.createThreadGroup(planName + " Thread Group", finalThreads, finalRampUp, loopController);
+        HTTPSamplerProxy httpSampler = TestPlanFactory.createHttpSampler("Request " + path, domain, path, method);
+        JSR223PostProcessor logProcessor = isResponseLoggingEnabled() ? createResponseLogger("Response Logger") : null;
 
         ListedHashTree testPlanTree = new ListedHashTree();
         testPlanTree.add(testPlan);
         HashTree threadGroupHashTree = testPlanTree.add(testPlan, threadGroup);
         threadGroupHashTree.add(httpSampler);
-
-        runTest(testPlanTree, planName);
+        if (logProcessor != null) {
+            threadGroupHashTree.add(logProcessor);
+        }
+        return testPlanTree;
     }
-
-    /**
-     * Executes a simple HTTP performance test using default configuration from
-     * properties.
-     *
-     * @param planName Test plan name
-     * @param path     Request path
-     */
     /**
      * Creates a HeaderManager with default headers.
      *
@@ -197,12 +97,58 @@ public abstract class BasePerformanceTest {
         HeaderManager headerManager = new HeaderManager();
         headerManager.setName(name);
         if (token != null && !token.isEmpty()) {
-            headerManager.add(new Header("Authorization", "Bearer " + token));
+            String authValue = token.startsWith("Bearer ") ? token : "Bearer " + token;
+            headerManager.add(new Header("Authorization", authValue));
         }
         headerManager.add(new Header("Content-Type", "application/json"));
         headerManager.add(new Header("Accept", "application/json"));
         configureTestElement(headerManager, HeaderManager.class, HeaderPanel.class);
         return headerManager;
+    }
+
+    /**
+     * Gets an existing HeaderManager from the tree or creates a new one.
+     * This prevents overwriting previously configured headers.
+     *
+     * @param threadGroupTree The HashTree to search for existing HeaderManager
+     * @param name           Name for the header manager if creating new
+     * @param token          Auth token to use if creating new
+     * @return Existing or newly created HeaderManager
+     */
+    protected HeaderManager getOrCreateHeaderManager(HashTree threadGroupTree, String name, String token) {
+        // Check if HeaderManager already exists in the tree
+        for (Object key : threadGroupTree.list()) {
+            if (key instanceof HeaderManager) {
+                return (HeaderManager) key;
+            }
+        }
+        // If not found, create a new one and add it to the tree
+        HeaderManager headerManager = createHeaderManager(name, token);
+        threadGroupTree.add(headerManager);
+        return headerManager;
+    }
+
+    /**
+     * Adds a header to an existing HeaderManager without overwriting existing headers.
+     *
+     * @param headerManager The HeaderManager to add the header to
+     * @param name         Header name
+     * @param value        Header value
+     */
+    protected void addHeader(HeaderManager headerManager, String name, String value) {
+        headerManager.add(new Header(name, value));
+    }
+
+    /**
+     * Adds multiple headers to an existing HeaderManager.
+     *
+     * @param headerManager The HeaderManager to add headers to
+     * @param headers      Map of header names to values
+     */
+    protected void addHeaders(HeaderManager headerManager, java.util.Map<String, String> headers) {
+        if (headers != null) {
+            headers.forEach((name, value) -> headerManager.add(new Header(name, value)));
+        }
     }
 
     /**
@@ -215,7 +161,7 @@ public abstract class BasePerformanceTest {
         JSR223PostProcessor logProcessor = new JSR223PostProcessor();
         logProcessor.setName(name);
         logProcessor.setProperty("scriptLanguage", "groovy");
-        String logScript = "log.info('Sample: ' + prev.getSampleLabel() + ' | Code: ' + prev.getResponseCode() + ' | Response: ' + prev.getResponseDataAsString());";
+        String logScript = "log.info('URL: ' + prev.getUrlAsString() + ' | Sample: ' + prev.getSampleLabel() + ' | Code: ' + prev.getResponseCode() + ' | Response: ' + prev.getResponseDataAsString());";
         logProcessor.setProperty("script", logScript);
         configureTestElement(logProcessor, JSR223PostProcessor.class, TestBeanGUI.class);
         return logProcessor;
@@ -253,23 +199,11 @@ public abstract class BasePerformanceTest {
         ListedHashTree testPlanTree = globalCtx.getTestPlanTree();
         TestPlan testPlan = globalCtx.getTestPlan();
 
-        // Create Thread Group Components
-        LoopController loopController = createLoopController(loops);
-        ThreadGroup threadGroup = createThreadGroup(threads, rampUp, loopController);
-        threadGroup.setName(name);
+        LoopController loopController = TestPlanFactory.createLoopController(loops);
+        ThreadGroup threadGroup = TestPlanFactory.createThreadGroup(name, threads, rampUp, loopController);
 
-        // Add to Global Tree
         HashTree threadGroupTree = testPlanTree.add(testPlan, threadGroup);
-
-        // Add Standard Components (Header Manager, Logger) strictly to THIS Thread
-        // Group to ensure isolation between groups. (Optional: could be global if
-        // desired)
-        String token = getProperty("target.auth.token");
-        HeaderManager headerManager = createHeaderManager(name + " Headers", token);
-        threadGroupTree.add(headerManager);
-
-        JSR223PostProcessor logProcessor = createResponseLogger(name + " Logger");
-        threadGroupTree.add(logProcessor);
+        attachStandardComponents(threadGroupTree, name);
 
         return new TestContext(testPlanTree, threadGroupTree);
     }
@@ -281,10 +215,22 @@ public abstract class BasePerformanceTest {
         log.info("Executing Global Test Suite...");
         ListedHashTree globalTree = GlobalSuiteContext.getInstance().getTestPlanTree();
         String suiteName = GlobalSuiteContext.getInstance().getTestPlan().getName();
-        // Use runner to execute
         runner.runTest(globalTree, suiteName);
-
-        // Clean up ThreadLocal
         GlobalSuiteContext.getInstance().clear();
+    }
+
+    private void attachStandardComponents(HashTree threadGroupTree, String name) {
+        String token = TestConfiguration.getProperty("target.auth.token");
+        // Use getOrCreateHeaderManager to avoid overwriting existing headers
+        getOrCreateHeaderManager(threadGroupTree, name + " Headers", token);
+
+        if (isResponseLoggingEnabled()) {
+            JSR223PostProcessor logProcessor = createResponseLogger(name + " Logger");
+            threadGroupTree.add(logProcessor);
+        }
+    }
+
+    private boolean isResponseLoggingEnabled() {
+        return Boolean.parseBoolean(TestConfiguration.getProperty("response.logging.enabled", "false"));
     }
 }

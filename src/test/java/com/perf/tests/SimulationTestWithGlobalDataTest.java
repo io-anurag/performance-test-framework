@@ -1,6 +1,7 @@
 package com.perf.tests;
 
 import com.perf.framework.BasePerformanceTest;
+import com.perf.framework.TestConfiguration;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -25,7 +26,7 @@ class SimulationTestWithGlobalDataTest extends BasePerformanceTest {
             "Stress Test (Global) - httpbin.org/bytes/1024, /bytes/1024"
     })
     void testGlobalSimulation(String planName, String path) {
-        String targetDomain = getProperty("target.domain", "httpbin.org");
-        runHttpTest(planName, targetDomain, path, "GET", null, null, null);
+        String targetDomain = TestConfiguration.getProperty("target.domain", "httpbin.org");
+        runSimpleHttpPlan(planName, targetDomain, path, "GET", null, null, null);
     }
 }

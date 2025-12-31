@@ -36,16 +36,36 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
 
     public static void initReport() {
         if (extent == null) {
-            String reportPath = TestConfiguration.getProperty("report.path", "target/extent-report.html");
-            String reportTitle = TestConfiguration.getProperty("report.title", "JMeter Test Report");
-            String reportName = TestConfiguration.getProperty("report.name", "Performance Test Execution");
-            String themeStr = TestConfiguration.getProperty("report.theme", "STANDARD");
+            String reportPath = TestConfiguration.getProperty("report.path");
+            String reportTitle = TestConfiguration.getProperty("report.title");
+            String reportName = TestConfiguration.getProperty("report.name");
+            String themeStr = TestConfiguration.getProperty("report.theme");
             Theme theme = "DARK".equalsIgnoreCase(themeStr) ? Theme.DARK : Theme.STANDARD;
+
+                // Compact, clean styling for tabular data and badges
+                String customCss = """
+                    body, .table { font-size: 13px; }
+                    .table-sm.table-bordered { border: 1px solid #e0e0e0; }
+                    .table-sm.table-bordered td, .table-sm.table-bordered th { padding: 6px 8px; }
+                    .table-sm.table-bordered thead tr { background: #f4f6f8; }
+                    .table-sm.table-bordered tbody tr:nth-child(even) { background: #fafafa; }
+                    .badge-method { color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 11px; }
+                    .col-url { max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    .badge.white-text.green { background: #2e7d32; }
+                    .badge.white-text.red { background: #c62828; }
+                    .detail-body .table { margin-bottom: 8px; }
+                    .test-contents .card, .test-contents .table { box-shadow: none; }
+                    .badge.badge-default { background: #e0e0e0; color: #424242; }
+                    .badge.badge-success { background: #2e7d32; }
+                    .badge.badge-danger { background: #c62828; }
+                    .badge.badge-primary { background: #1565c0; }
+                    """;
 
             ExtentSparkReporter spark = new ExtentSparkReporter(reportPath);
             spark.config().setTheme(theme);
             spark.config().setDocumentTitle(reportTitle);
             spark.config().setReportName(reportName);
+                spark.config().setCss(customCss);
 
             extent = new ExtentReports();
             extent.attachReporter(spark);

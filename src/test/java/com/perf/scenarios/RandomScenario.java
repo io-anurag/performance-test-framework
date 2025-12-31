@@ -2,6 +2,7 @@ package com.perf.scenarios;
 
 import com.perf.framework.BasePerformanceTest;
 import com.perf.framework.TestContext;
+import com.perf.framework.TestPlanFactory;
 import org.apache.jmeter.control.RandomOrderController;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
 import org.apache.jorphan.collections.HashTree;
@@ -20,15 +21,15 @@ public class RandomScenario {
 
         // Add Samplers to Controller
         // Use /status/200 to simulate a successful search
-        HTTPSamplerProxy search = test.createHttpSampler("Search (Simulated)", domain, "/status/200", "GET");
+        HTTPSamplerProxy search = TestPlanFactory.createHttpSampler("Search (Simulated)", domain, "/status/200", "GET");
         controllerTree.add(search);
 
         // Use /bytes/500 to simulate a product page load
-        HTTPSamplerProxy browse = test.createHttpSampler("Browse Product", domain, "/bytes/500", "GET");
+        HTTPSamplerProxy browse = TestPlanFactory.createHttpSampler("Browse Product", domain, "/bytes/500", "GET");
         controllerTree.add(browse);
 
         // Use /get to simulate viewing cart
-        HTTPSamplerProxy cart = test.createHttpSampler("View Cart", domain, "/get", "GET");
+        HTTPSamplerProxy cart = TestPlanFactory.createHttpSampler("View Cart", domain, "/get", "GET");
         controllerTree.add(cart);
     }
 }
