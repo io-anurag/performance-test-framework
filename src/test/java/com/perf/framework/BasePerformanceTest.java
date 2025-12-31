@@ -7,6 +7,11 @@ import org.apache.jmeter.testelement.TestPlan;
 import org.apache.jmeter.threads.ThreadGroup;
 import org.apache.jorphan.collections.HashTree;
 import org.apache.jorphan.collections.ListedHashTree;
+import org.apache.jmeter.protocol.http.control.HeaderManager;
+import org.apache.jmeter.protocol.http.gui.HeaderPanel;
+import org.apache.jmeter.protocol.http.control.Header;
+import org.apache.jmeter.extractor.JSR223PostProcessor;
+import org.apache.jmeter.testbeans.gui.TestBeanGUI;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +26,8 @@ public abstract class BasePerformanceTest {
     protected PerformanceTestRunner runner;
 
     /**
-     * Initializes a base test with a ready-to-use {@link PerformanceTestRunner} and reporting extension.
+     * Initializes a base test with a ready-to-use {@link PerformanceTestRunner} and
+     * reporting extension.
      * Keeps test classes lightweight by centralizing common setup.
      */
     public BasePerformanceTest() {
@@ -77,10 +83,9 @@ public abstract class BasePerformanceTest {
      * @param method HTTP method (e.g., GET, POST)
      * @return configured HTTP sampler
      */
-    protected HTTPSamplerProxy createHttpSampler(String name, String domain, int port, String path, String method) {
+    public HTTPSamplerProxy createHttpSampler(String name, String domain, String path, String method) {
         HTTPSamplerProxy httpSampler = new HTTPSamplerProxy();
         httpSampler.setDomain(domain);
-        httpSampler.setPort(port);
         httpSampler.setPath(path);
         httpSampler.setMethod(method);
         httpSampler.setName(name);
@@ -96,8 +101,12 @@ public abstract class BasePerformanceTest {
     /**
      * Executes the test plan and handles errors appropriately.
      *
-     * <p>Augments the tree with an ExtentReport listener for unified reporting, then delegates to
-     * {@link PerformanceTestRunner} for execution. Wraps any thrown errors to fail the test with context.</p>
+     * <p>
+     * Augments the tree with an ExtentReport listener for unified reporting, then
+     * delegates to
+     * {@link PerformanceTestRunner} for execution. Wraps any thrown errors to fail
+     * the test with context.
+     * </p>
      *
      * @param testPlanTree The JMeter test plan tree to execute
      * @param testPlanName Name of the test plan for logging
@@ -151,7 +160,8 @@ public abstract class BasePerformanceTest {
      * @param loops    Number of loops per thread. If null, reads from config.
      * @param rampUp   Ramp-up time in seconds. If null, reads from config.
      */
-    protected void runHttpTest(String planName, String domain, int port, String path, String method, Integer threads, Integer loops, Integer rampUp) {
+    protected void runHttpTest(String planName, String domain, String path, String method, Integer threads,
+            Integer loops, Integer rampUp) {
         int finalThreads = (threads != null) ? threads : getIntProperty("threads", 1);
         int finalLoops = (loops != null) ? loops : getIntProperty("loops", 1);
         int finalRampUp = (rampUp != null) ? rampUp : getIntProperty("rampUp", 1);
@@ -159,7 +169,7 @@ public abstract class BasePerformanceTest {
         TestPlan testPlan = createTestPlan(planName);
         LoopController loopController = createLoopController(finalLoops);
         ThreadGroup threadGroup = createThreadGroup(finalThreads, finalRampUp, loopController);
-        HTTPSamplerProxy httpSampler = createHttpSampler("Request " + path, domain, port, path, method);
+        HTTPSamplerProxy httpSampler = createHttpSampler("Request " + path, domain, path, method);
 
         ListedHashTree testPlanTree = new ListedHashTree();
         testPlanTree.add(testPlan);
@@ -170,16 +180,111 @@ public abstract class BasePerformanceTest {
     }
 
     /**
-     * Executes a simple HTTP performance test using default configuration from properties.
+     * Executes a simple HTTP performance test using default configuration from
+     * properties.
      *
      * @param planName Test plan name
      * @param path     Request path
      */
-    protected void runHttpTest(String planName, String path) {
-        String domain = getProperty("target.domain", "httpbin.org");
-        int port = getIntProperty("target.port", 80);
-        String method = getProperty("target.method", "GET");
+    /**
+     * Creates a HeaderManager with default headers.
+     *
+     * @param name  Name of the header manager
+     * @param token Auth token to use
+     * @return Configured HeaderManager
+     */
+    protected HeaderManager createHeaderManager(String name, String token) {
+        HeaderManager headerManager = new HeaderManager();
+        headerManager.setName(name);
+        if (token != null && !token.isEmpty()) {
+            headerManager.add(new Header("Authorization", "Bearer " + token));
+        }
+        headerManager.add(new Header("Content-Type", "application/json"));
+        headerManager.add(new Header("Accept", "application/json"));
+        configureTestElement(headerManager, HeaderManager.class, HeaderPanel.class);
+        return headerManager;
+    }
 
-        runHttpTest(planName, domain, port, path, method, null, null, null);
+    /**
+     * Creates a JSR223PostProcessor for logging responses.
+     *
+     * @param name Name of the logger
+     * @return Configured JSR223PostProcessor
+     */
+    protected JSR223PostProcessor createResponseLogger(String name) {
+        JSR223PostProcessor logProcessor = new JSR223PostProcessor();
+        logProcessor.setName(name);
+        logProcessor.setProperty("scriptLanguage", "groovy");
+        String logScript = "log.info('Sample: ' + prev.getSampleLabel() + ' | Code: ' + prev.getResponseCode() + ' | Response: ' + prev.getResponseDataAsString());";
+        logProcessor.setProperty("script", logScript);
+        configureTestElement(logProcessor, JSR223PostProcessor.class, TestBeanGUI.class);
+        return logProcessor;
+    }
+
+    /**
+     * Configures a TestElement with its test class and GUI class.
+     *
+     * @param element   The TestElement to configure
+     * @param testClass The class of the test element
+     * @param guiClass  The GUI class for the test element
+     */
+    public void configureTestElement(TestElement element, Class<?> testClass, Class<?> guiClass) {
+        element.setProperty(TestElement.TEST_CLASS, testClass.getName());
+        element.setProperty(TestElement.GUI_CLASS, guiClass.getName());
+    }
+
+    protected void startSuite(String suiteName) {
+        log.info("Starting new Test Suite: {}", suiteName);
+        GlobalSuiteContext.getInstance().initialize(suiteName);
+    }
+
+    /**
+     * Creates a new Thread Group and attaches it to the current Global Suite.
+     * 
+     * @param name    Name of this specific Thread Group
+     * @param threads Number of users
+     * @param rampUp  Ramp-up in seconds
+     * @param loops   Number of loops
+     * @return A TestContext scoped to this Thread Group (but attached to Global
+     *         Plan)
+     */
+    protected TestContext createSuiteThreadGroup(String name, int threads, int rampUp, int loops) {
+        GlobalSuiteContext globalCtx = GlobalSuiteContext.getInstance();
+        ListedHashTree testPlanTree = globalCtx.getTestPlanTree();
+        TestPlan testPlan = globalCtx.getTestPlan();
+
+        // Create Thread Group Components
+        LoopController loopController = createLoopController(loops);
+        ThreadGroup threadGroup = createThreadGroup(threads, rampUp, loopController);
+        threadGroup.setName(name);
+
+        // Add to Global Tree
+        HashTree threadGroupTree = testPlanTree.add(testPlan, threadGroup);
+
+        // Add Standard Components (Header Manager, Logger) strictly to THIS Thread
+        // Group to ensure isolation between groups. (Optional: could be global if
+        // desired)
+        String token = getProperty("target.auth.token");
+        HeaderManager headerManager = createHeaderManager(name + " Headers", token);
+        threadGroupTree.add(headerManager);
+
+        JSR223PostProcessor logProcessor = createResponseLogger(name + " Logger");
+        threadGroupTree.add(logProcessor);
+
+        return new TestContext(testPlanTree, threadGroupTree);
+    }
+
+    /**
+     * Executes the assembled Global Suite.
+     */
+    protected void runSuite() {
+        log.info("Executing Global Test Suite...");
+        ListedHashTree globalTree = GlobalSuiteContext.getInstance().getTestPlanTree();
+        String suiteName = GlobalSuiteContext.getInstance().getTestPlan().getName();
+        // Use runner to execute
+        runner.runTest(globalTree, suiteName);
+
+        // Clean up ThreadLocal
+        GlobalSuiteContext.getInstance().clear();
     }
 }

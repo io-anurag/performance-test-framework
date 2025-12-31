@@ -5,10 +5,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Lightweight runner that executes a prepared JMeter test plan with ExtentReports integration.
+ * Lightweight runner that executes a prepared JMeter test plan with
+ * ExtentReports integration.
  *
- * <p>Adds the {@link ExtentReportJMeterListener} to the provided plan tree, delegates execution
- * to {@link JMeterDriver}, and wraps failures to surface meaningful test errors.</p>
+ * <p>
+ * Adds the {@link ExtentReportJMeterListener} to the provided plan tree,
+ * delegates execution
+ * to {@link JMeterDriver}, and wraps failures to surface meaningful test
+ * errors.
+ * </p>
  */
 public class PerformanceTestRunner {
     private static final Logger log = LoggerFactory.getLogger(PerformanceTestRunner.class);
@@ -36,6 +41,9 @@ public class PerformanceTestRunner {
         try {
             log.info("Starting Test Execution: {}", testPlanName);
             driver.runTest(testPlanTree);
+
+            // Allow time for async results if any, then flush
+            extentListener.flush();
             log.info("Test Execution Finished: {}", testPlanName);
         } catch (Throwable t) {
             log.error("Test Execution Failed: {}", testPlanName, t);

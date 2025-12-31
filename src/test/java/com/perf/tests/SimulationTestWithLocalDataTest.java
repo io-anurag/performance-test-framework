@@ -22,10 +22,9 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @DisplayName("Standard Load Test - httpbin.org/get")
     void testStandardLoadProfile() {
         String targetDomain = getProperty("target.domain", "httpbin.org");
-        int targetPort = getIntProperty("target.port", 80);
         String planName = "Standard Load Test - httpbin.org/get";
-        
-        runHttpTest(planName, targetDomain, targetPort, "/get", "GET", 10, 5, 5);
+
+        runHttpTest(planName, targetDomain, "/get", "GET", 10, 5, 5);
     }
 
     /**
@@ -38,10 +37,9 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @DisplayName("Spike Test - httpbin.org/ip")
     void testSpikeTrafficProfile() {
         String targetDomain = getProperty("target.domain", "httpbin.org");
-        int targetPort = getIntProperty("target.port", 80);
         String planName = "Spike Test - httpbin.org/ip";
 
-        runHttpTest(planName, targetDomain, targetPort, "/ip", "GET", 20, 1, 1);
+        runHttpTest(planName, targetDomain, "/ip", "GET", 20, 1, 1);
     }
 
     /**
@@ -54,10 +52,9 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @DisplayName("Latency Test - httpbin.org/delay/2")
     void testSlowResponseHandling() {
         String targetDomain = getProperty("target.domain", "httpbin.org");
-        int targetPort = getIntProperty("target.port", 80);
         String planName = "Latency Test - httpbin.org/delay/2";
 
-        runHttpTest(planName, targetDomain, targetPort, "/delay/2", "GET", 5, 1, 2);
+        runHttpTest(planName, targetDomain, "/delay/2", "GET", 5, 1, 2);
     }
 
     /**
@@ -70,9 +67,8 @@ class SimulationTestWithLocalDataTest extends BasePerformanceTest {
     @Test
     void testStressProfile() {
         String targetDomain = getProperty("target.domain", "httpbin.org");
-        int targetPort = getIntProperty("target.port", 80);
         String planName = "Stress Test - httpbin.org/bytes/1024";
 
-        runHttpTest(planName, targetDomain, targetPort, "/bytes/1024", "GET", 15, 10, 5);
+        runHttpTest(planName, targetDomain, "/bytes/1024", "GET", 15, 10, 5);
     }
 }
