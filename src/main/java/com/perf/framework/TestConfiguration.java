@@ -107,4 +107,37 @@ public class TestConfiguration {
         }
         return defaultValue;
     }
+    
+    /**
+     * Returns a property parsed as a boolean.
+     *
+     * @param key property key
+     * @return boolean value of the property
+     */
+    public static boolean getBooleanProperty(String key) {
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) {
+            return Boolean.parseBoolean(sys);
+        }
+        return Boolean.parseBoolean(properties.getProperty(key));
+    }
+    
+    /**
+     * Returns a property parsed as a boolean with a default fallback.
+     *
+     * @param key          property key
+     * @param defaultValue value to return when the property is absent
+     * @return parsed boolean value or {@code defaultValue} if the key is missing
+     */
+    public static boolean getBooleanProperty(String key, boolean defaultValue) {
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) {
+            return Boolean.parseBoolean(sys);
+        }
+        String val = properties.getProperty(key);
+        if (val != null && !val.isEmpty()) {
+            return Boolean.parseBoolean(val);
+        }
+        return defaultValue;
+    }
 }

@@ -44,7 +44,6 @@ Update `src/main/resources/config.properties` with your target environment:
 # Target API Configuration
 target.domain=api.example.com
 target.path=/api/v1
-target.method=GET
 
 # Global Headers (Applied to ALL requests)
 global.header.Authorization=Bearer YOUR_TOKEN_HERE

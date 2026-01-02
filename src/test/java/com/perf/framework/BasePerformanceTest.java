@@ -10,6 +10,10 @@ import org.apache.jorphan.collections.ListedHashTree;
 import org.apache.jmeter.protocol.http.control.HeaderManager;
 import com.perf.reporting.ExtentReportListener;
 import org.apache.jmeter.extractor.JSR223PostProcessor;
+import org.apache.jmeter.control.TransactionController;
+import org.apache.jmeter.control.GenericController;
+import org.apache.jmeter.assertions.ResponseAssertion;
+import org.apache.jmeter.assertions.DurationAssertion;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,8 +94,8 @@ public abstract class BasePerformanceTest {
 
         TestPlan testPlan = TestPlanFactory.createTestPlan(planName);
         LoopController loopController = TestPlanFactory.createLoopController(finalLoops);
-        ThreadGroup threadGroup = TestPlanFactory.createThreadGroup(planName + " Thread Group", finalThreads,
-                finalRampUp, loopController);
+        
+        ThreadGroup threadGroup = TestPlanFactory.createThreadGroup(planName + " Thread Group", finalThreads, finalRampUp, loopController);
         HTTPSamplerProxy httpSampler = TestPlanFactory.createHttpSampler("Request " + path, domain, path, method);
         JSR223PostProcessor logProcessor = isResponseLoggingEnabled()
                 ? TestPlanFactory.createResponseLogger("Response Logger")
@@ -120,10 +124,9 @@ public abstract class BasePerformanceTest {
      */
     protected void startSuite(String suiteName) {
         log.info("Starting new Test Suite: {}", suiteName);
-        GlobalSuiteContext.getInstance().initialize(suiteName);
-
-        // Attach global headers at test plan level (applied to all requests)
         GlobalSuiteContext globalCtx = GlobalSuiteContext.getInstance();
+        globalCtx.initialize(suiteName);
+
         ListedHashTree testPlanTree = globalCtx.getTestPlanTree();
         TestPlan testPlan = globalCtx.getTestPlan();
 
@@ -190,8 +193,7 @@ public abstract class BasePerformanceTest {
      * @return HashTree for the controller, to which samplers can be added
      */
     protected HashTree addTransactionController(HashTree parentTree, String name, boolean generateParent) {
-        org.apache.jmeter.control.TransactionController controller = TestPlanFactory.createTransactionController(name,
-                generateParent);
+        TransactionController controller = TestPlanFactory.createTransactionController(name, generateParent);
         return parentTree.add(controller);
     }
 
@@ -204,7 +206,7 @@ public abstract class BasePerformanceTest {
      * @return HashTree for the controller, to which samplers can be added
      */
     protected HashTree addSimpleController(HashTree parentTree, String name) {
-        org.apache.jmeter.control.GenericController controller = TestPlanFactory.createSimpleController(name);
+        GenericController controller = TestPlanFactory.createSimpleController(name);
         return parentTree.add(controller);
     }
 
@@ -226,9 +228,23 @@ public abstract class BasePerformanceTest {
      * @param expectedCodes Expected response codes (e.g., "200", "201")
      */
     protected void addResponseCodeAssertion(HashTree samplerTree, String... expectedCodes) {
-        org.apache.jmeter.assertions.ResponseAssertion assertion = TestPlanFactory
-                .createResponseCodeAssertion("Response Code Assertion", expectedCodes);
+        ResponseAssertion assertion = TestPlanFactory.createResponseCodeAssertion("Response Code Assertion", expectedCodes);
         samplerTree.add(assertion);
+    }
+    
+    /**
+     * Adds a ResponseCodeAssertion using default codes from config.properties.
+     * Falls back to "200" if not configured.
+     *
+     * @param samplerTree The sampler's HashTree
+     */
+    protected void addResponseCodeAssertionFromConfig(HashTree samplerTree) {
+        String codesStr = TestConfiguration.getProperty("assertion.expected.response.codes", "200");
+        String[] codes = codesStr.split(",");
+        for (int i = 0; i < codes.length; i++) {
+            codes[i] = codes[i].trim();
+        }
+        addResponseCodeAssertion(samplerTree, codes);
     }
 
     /**
@@ -238,8 +254,7 @@ public abstract class BasePerformanceTest {
      * @param maxDurationMs Maximum allowed duration in milliseconds
      */
     protected void addDurationAssertion(HashTree samplerTree, long maxDurationMs) {
-        org.apache.jmeter.assertions.DurationAssertion assertion = TestPlanFactory
-                .createDurationAssertion("Duration Assertion", maxDurationMs);
+        DurationAssertion assertion = TestPlanFactory.createDurationAssertion("Duration Assertion", maxDurationMs);
         samplerTree.add(assertion);
     }
 
@@ -251,8 +266,30 @@ public abstract class BasePerformanceTest {
      * @param maxDurationMs Maximum allowed duration in milliseconds
      */
     protected void addDurationAssertion(HashTree samplerTree, String name, long maxDurationMs) {
-        org.apache.jmeter.assertions.DurationAssertion assertion = TestPlanFactory.createDurationAssertion(name,
-                maxDurationMs);
+        DurationAssertion assertion = TestPlanFactory.createDurationAssertion(name, maxDurationMs);
         samplerTree.add(assertion);
+    }
+    
+    /**
+     * Adds a DurationAssertion using default duration from config.properties.
+     * Falls back to 3000ms if not configured.
+     *
+     * @param samplerTree The sampler's HashTree
+     * @param name        Name of the assertion
+     */
+    protected void addDurationAssertionFromConfig(HashTree samplerTree, String name) {
+        int maxDuration = TestConfiguration.getIntProperty("assertion.max.duration.ms", 3000);
+        addDurationAssertion(samplerTree, name, maxDuration);
+    }
+    
+    /**
+     * Adds a DurationAssertion using default duration from config.properties.
+     * Falls back to 3000ms if not configured.
+     *
+     * @param samplerTree The sampler's HashTree
+     */
+    protected void addDurationAssertionFromConfig(HashTree samplerTree) {
+        int maxDuration = TestConfiguration.getIntProperty("assertion.max.duration.ms", 3000);
+        addDurationAssertion(samplerTree, maxDuration);
     }
 }

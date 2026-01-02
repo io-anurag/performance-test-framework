@@ -8,6 +8,8 @@ import org.apache.jorphan.collections.HashTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.perf.exceptions.JMeterFrameworkException;
+
 import java.io.IOException;
 import java.io.File;
 import java.nio.file.Files;
@@ -52,7 +54,7 @@ public class JMeterDriver {
      */
     public JMeterDriver() {
         log.info("Initializing JMeterDriver...");
-        initJMeter(); // Initialize JMeter properties BEFORE creating engine
+        initJMeter();
         this.jmeter = new StandardJMeterEngine();
         log.info("JMeterDriver Initialized.");
     }

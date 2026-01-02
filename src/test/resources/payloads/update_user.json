@@ -1,5 +1,5 @@
 {
-    "name": "UpdatedUser_${__time(yyyy-MM-dd_HH-mm-ss)}",
-    "email": "updated_${__time(yyyyMMddHHmmss)}@testdomain.com",
+    "name": "UpdatedUser_${__Random(10000,99999,)}",
+    "email": "updated${__threadNum}${__Random(1000,9999,)}${__time(,)}@testdomain.com",
     "status": "active"
 }

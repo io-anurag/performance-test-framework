@@ -21,6 +21,16 @@ import org.apache.jmeter.protocol.http.gui.HeaderPanel;
 import org.apache.jmeter.protocol.http.control.Header;
 import org.apache.jmeter.extractor.JSR223PostProcessor;
 import org.apache.jmeter.testbeans.gui.TestBeanGUI;
+import org.apache.jmeter.protocol.http.util.HTTPArgument;
+import org.apache.jmeter.config.Arguments;
+import org.apache.jmeter.extractor.json.jsonpath.JSONPostProcessor;
+import org.apache.jmeter.extractor.json.jsonpath.gui.JSONPostProcessorGui;
+
+import com.perf.exceptions.TestExecutionException;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * Factory utilities to build common JMeter test plans programmatically.
@@ -211,8 +221,7 @@ public class TestPlanFactory {
      * @return configured HTTPSamplerProxy
      */
     public static HTTPSamplerProxy createHttpSampler(String samplerName, String protocol, String domain, Integer port,
-            String path,
-            String method) {
+            String path, String method) {
         String effectiveProtocol = (protocol != null) ? protocol : TestConfiguration.getProperty("target.protocol");
         String effectiveDomain = (domain != null) ? domain : TestConfiguration.getProperty("target.domain");
 
@@ -227,6 +236,57 @@ public class TestPlanFactory {
         httpSampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
         httpSampler.setProperty(TestElement.GUI_CLASS, HttpTestSampleGui.class.getName());
         return httpSampler;
+    }
+
+    /**
+     * Create an HTTP sampler with request body content.
+     * This method is ideal for POST, PUT, PATCH requests that require a request body.
+     * The body content supports JMeter functions and variables for dynamic data generation.
+     *
+     * @param samplerName Name for the sampler
+     * @param protocol    Protocol (http/https), null to use config default
+     * @param domain      target host (without protocol), null to use config default
+     * @param path        request path
+     * @param method      HTTP method (POST, PUT, PATCH)
+     * @param bodyContent Request body content (typically JSON)
+     * @return Configured HTTPSamplerProxy with body data
+     */
+    public static HTTPSamplerProxy createHttpSamplerWithBody(String samplerName, String protocol, String domain, String path,
+            String method, String bodyContent) {
+        HTTPSamplerProxy sampler = createHttpSampler(samplerName, protocol, domain, path, method);
+        HTTPArgument httpArg = new HTTPArgument();
+        httpArg.setAlwaysEncoded(false);
+        httpArg.setUseEquals(false);
+        httpArg.setValue(bodyContent);
+        
+        Arguments args = new Arguments();
+        args.addArgument(httpArg);
+        sampler.setArguments(args);
+        
+        return sampler;
+    }
+
+    /**
+     * Create an HTTP sampler with request body loaded from a file.
+     * The payload files support JMeter functions for dynamic data generation.
+     *
+     * @param samplerName Name for the sampler
+     * @param protocol    Protocol (http/https), null to use config default
+     * @param domain      target host (without protocol), null to use config default
+     * @param path        request path
+     * @param method      HTTP method (POST, PUT, PATCH)
+     * @param payloadFile Filename in src/test/resources/payloads/ directory
+     * @return Configured HTTPSamplerProxy with body data from file
+     * @throws TestExecutionException if payload file cannot be read
+     */
+    public static HTTPSamplerProxy createHttpSamplerWithPayloadFile(String samplerName, String protocol, String domain, String path,
+            String method, String payloadFile) {
+        try {
+            String payload = new String(Files.readAllBytes(Paths.get("src/test/resources/payloads/" + payloadFile)));
+            return createHttpSamplerWithBody(samplerName, protocol, domain, path, method, payload);
+        } catch (IOException e) {
+            throw new TestExecutionException("Failed to read payload file: " + payloadFile,  e.getCause());
+        }
     }
 
     /**
@@ -303,17 +363,14 @@ public class TestPlanFactory {
      *                     empty string)
      * @return Configured JSONPostProcessor
      */
-    public static org.apache.jmeter.extractor.json.jsonpath.JSONPostProcessor createJsonExtractor(
-            String name, String variableName, String jsonPath, String defaultValue) {
-        org.apache.jmeter.extractor.json.jsonpath.JSONPostProcessor extractor = new org.apache.jmeter.extractor.json.jsonpath.JSONPostProcessor();
+    public static JSONPostProcessor createJsonExtractor(String name, String variableName, String jsonPath, String defaultValue) {
+        JSONPostProcessor extractor = new JSONPostProcessor();
         extractor.setName(name);
         extractor.setRefNames(variableName);
         extractor.setJsonPathExpressions(jsonPath);
         extractor.setDefaultValues(defaultValue);
         extractor.setMatchNumbers("1"); // Extract first match
-        configureTestElement(extractor,
-                org.apache.jmeter.extractor.json.jsonpath.JSONPostProcessor.class,
-                org.apache.jmeter.extractor.json.jsonpath.gui.JSONPostProcessorGui.class);
+        configureTestElement(extractor, JSONPostProcessor.class, JSONPostProcessorGui.class);
         return extractor;
     }
 

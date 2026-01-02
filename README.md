@@ -78,7 +78,6 @@ test.plan.name=Performance Test Plan
 target.protocol=https
 target.domain=gorest.co.in
 target.path=/public/v2
-target.method=GET
 
 # Global Headers (Applied to ALL requests)
 # Configure tokens here to apply them to every request automatically

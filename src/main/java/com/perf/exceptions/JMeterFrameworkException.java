@@ -1,4 +1,4 @@
-package com.perf.framework;
+package com.perf.exceptions;
 
 /**
  * Unchecked exception representing framework-level failures in the JMeter integration.

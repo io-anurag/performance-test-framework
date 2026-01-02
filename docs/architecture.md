@@ -221,7 +221,6 @@ createResponseLogger(String name)                    // JSR223 response logger
 test.plan.name=Performance Test Plan
 target.domain=api.example.com
 target.path=/api/v1/endpoint
-target.method=GET
 ```
 
 #### Global Headers (Applied at TestPlan Level)

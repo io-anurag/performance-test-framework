@@ -4,10 +4,12 @@ import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.Status;
 import com.aventstack.extentreports.markuputils.ExtentColor;
 import com.aventstack.extentreports.markuputils.MarkupHelper;
+import com.perf.framework.TestConfiguration;
 import org.apache.jmeter.reporters.ResultCollector;
 import org.apache.jmeter.samplers.SampleEvent;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.protocol.http.sampler.HTTPSampleResult;
+import org.apache.jmeter.assertions.AssertionResult;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,6 +33,13 @@ public class ExtentReportJMeterListener extends ResultCollector {
     private static final String COLOR_DELETE = "#dc3545"; // Red
     private static final String COLOR_DEFAULT = "#777"; // Gray
     private static final String METHOD_FALLBACK = "N/A";
+    private final boolean showResponseBody;
+    private final boolean excludeTransactionControllers;
+    
+    public ExtentReportJMeterListener() {
+        this.showResponseBody = TestConfiguration.getBooleanProperty("report.show.response.body", true);
+        this.excludeTransactionControllers = TestConfiguration.getBooleanProperty("report.exclude.transaction.controllers", true);
+    }
 
     /**
      * Receives each sampler event and buffers its result for post-execution reporting.
@@ -144,8 +153,28 @@ public class ExtentReportJMeterListener extends ResultCollector {
         table.append(HtmlTemplates.EXECUTION_LOG_TABLE_HEADER);
         table.append("<tbody>");
 
+        List<SampleResult> filteredResults = new ArrayList<>();
         synchronized (resultsBuffer) {
-            for (SampleResult result : resultsBuffer) {
+            if (excludeTransactionControllers) {
+                // Extract individual HTTP samplers from Transaction Controllers
+                for (SampleResult result : resultsBuffer) {
+                    if (result instanceof HTTPSampleResult) {
+                        // It's already an HTTP sampler, add it
+                        filteredResults.add(result);
+                    } else if (result.getSubResults() != null && result.getSubResults().length > 0) {
+                        // It's a Transaction Controller, extract its sub-results
+                        for (SampleResult subResult : result.getSubResults()) {
+                            if (subResult instanceof HTTPSampleResult) {
+                                filteredResults.add(subResult);
+                            }
+                        }
+                    }
+                }
+            } else {
+                filteredResults = new ArrayList<>(resultsBuffer);
+            }
+            
+            for (SampleResult result : filteredResults) {
                 table.append(buildRowHtml(result));
             }
         }
@@ -183,6 +212,15 @@ public class ExtentReportJMeterListener extends ResultCollector {
             String responseData = extractResponseData(result);
             row.append(String.format(HtmlTemplates.ERROR_ROW_TEMPLATE,
                     errorMsg, responseData));
+        } else if (showResponseBody) {
+            // Show response body for successful requests if configured
+            String responseData = extractResponseData(result);
+            if (responseData != null && !"No response body".equals(responseData)) {
+                row.append(String.format(
+                    "<tr><td colspan='4' style='color: #28a745; padding: 10px; background-color: #f0f8f0;'>" +
+                    "<b>Response:</b> <pre style='margin: 5px 0; white-space: pre-wrap; word-wrap: break-word;'>%s</pre></td></tr>",
+                    escapeHtml(responseData)));
+            }
         }
 
         return row.toString();
@@ -250,11 +288,10 @@ public class ExtentReportJMeterListener extends ResultCollector {
      * Extracts assertion failure messages from a single SampleResult.
      */
     private String extractAssertionFailures(SampleResult result) {
-        org.apache.jmeter.assertions.AssertionResult[] assertionResults = result.getAssertionResults();
-
+        AssertionResult[] assertionResults = result.getAssertionResults();
         if (assertionResults != null && assertionResults.length > 0) {
             StringBuilder assertionErrors = new StringBuilder();
-            for (org.apache.jmeter.assertions.AssertionResult assertion : assertionResults) {
+            for (AssertionResult assertion : assertionResults) {
                 if (assertion.isError() || assertion.isFailure()) {
                     if (!assertionErrors.isEmpty()) {
                         assertionErrors.append("; ");
@@ -362,6 +399,20 @@ public class ExtentReportJMeterListener extends ResultCollector {
             case "DELETE" -> COLOR_DELETE;
             default -> COLOR_DEFAULT;
         };
+    }
+    
+    /**
+     * Escapes HTML special characters to prevent XSS and rendering issues.
+     */
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#x27;");
     }
 
     /**
