@@ -26,6 +26,13 @@
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
     <jmeter.version>5.6.3</jmeter.version>
+    <logback-classic.version>1.4.14</logback-classic.version>
+    <junit-jupiter-api.version>5.10.0</junit-jupiter-api.version>
+    <junit-jupiter-engine.version>5.10.0</junit-jupiter-engine.version>
+    <junit-jupiter-params.version>5.10.0</junit-jupiter-params.version>
+    <extentreports.version>5.1.1</extentreports.version>
+    <jmeter-graph-tool-maven-plugin.version>1.2</jmeter-graph-tool-maven-plugin.version>
+    <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
   </properties>
 
   <dependencies>
@@ -52,30 +59,30 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.4.14</version>
+      <version>${logback-classic.version}</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
-      <version>5.10.0</version>
+      <version>${junit-jupiter-api.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
-      <version>5.10.0</version>
+      <version>${junit-jupiter-engine.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
-      <version>5.10.0</version>
+      <version>${junit-jupiter-params.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.aventstack</groupId>
       <artifactId>extentreports</artifactId>
-      <version>5.1.1</version>
+      <version>${extentreports.version}</version>
     </dependency>
   </dependencies>
 
@@ -83,7 +90,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.1.2</version>
+        <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <testFailureIgnore>true</testFailureIgnore>
         </configuration>
@@ -91,7 +98,7 @@
       <plugin>
         <groupId>io.github.vdaburon</groupId>
         <artifactId>jmeter-graph-tool-maven-plugin</artifactId>
-        <version>1.2</version>
+        <version>${jmeter-graph-tool-maven-plugin.version}</version>
         <executions>
           <execution>
             <id>create-graphs</id>

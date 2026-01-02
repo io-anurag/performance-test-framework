@@ -112,26 +112,36 @@ jtl.path=logs/test_result.jtl
 
 ## 🏃 Running Tests
 
-You can run tests using standard Maven commands.
+### Run Tests Only (Fast)
 
-### Run All Tests
+Execute tests without generating performance graphs:
 
 ```bash
+# Run all tests
 mvn clean test
-```
 
-### Run a Specific Test Class
-
-```bash
+# Run a specific test class
 mvn test -Dtest=GoRestAPITest
 ```
 
-### Run with Custom Parameters (Override Config)
+### Run Tests + Generate Graphs (Recommended)
 
-You can override any property from the command line:
+Execute tests and generate PNG performance graphs in `report/graphs/`:
 
 ```bash
-mvn test -Dtest=GoRestAPITest -Dthread.count=50 -Dtarget.domain=staging-api.com
+# Run all tests with graph generation
+mvn clean verify
+
+# Run specific test with graph generation
+mvn clean verify -Dtest=GoRestAPITest
+```
+
+### Run with Custom Parameters
+
+Override config.properties values from the command line:
+
+```bash
+mvn clean verify -Dtest=GoRestAPITest -Dthread.count=50 -Dramp.up=10
 ```
 
 ---
