@@ -1,4 +1,5 @@
 {
-    "name": "Updated Test User",
-    "status": "inactive"
+    "name": "UpdatedUser_${__time(yyyy-MM-dd_HH-mm-ss)}",
+    "email": "updated_${__time(yyyyMMddHHmmss)}@testdomain.com",
+    "status": "active"
 }

@@ -80,12 +80,10 @@ public class JMeterDriver {
                 System.setProperty("jmeter.home", jmeterHome);
                 log.info("Created temporary JMeter home: {}", jmeterHome);
 
-                // Create minimal bin/jmeter.properties
                 Path binDir = tempHome.resolve("bin");
                 Files.createDirectories(binDir);
                 Path propsFile = binDir.resolve("jmeter.properties");
                 if (!Files.exists(propsFile)) {
-                    // Create comprehensive jmeter.properties to avoid initialization warnings
                     String properties = """
                             # JMeter Properties
                             jmeter.save.saveservice.output_format=csv
@@ -114,12 +112,8 @@ public class JMeterDriver {
 
         JMeterUtils.setJMeterHome(jmeterHome);
         JMeterUtils.loadJMeterProperties(propsFile.getAbsolutePath());
-
-        // Initialize JMeter properties to avoid null appProperties warnings
-        // This ensures appProperties is properly set before any property access
         JMeterUtils.getJMeterProperties();
         JMeterUtils.initLocale();
-
         log.info("JMeter properties loaded from: {}", propsFile.getAbsolutePath());
     }
 
@@ -136,6 +130,7 @@ public class JMeterDriver {
      * </p>
      *
      * @param testPlanTree fully assembled JMeter test plan tree to execute
+     * @param testPlanName logical name used for logging and reporting context
      */
     public void runTest(HashTree testPlanTree, String testPlanName) {
         log.info("Starting test execution for plan: {}", testPlanName);
@@ -148,7 +143,8 @@ public class JMeterDriver {
 
         jmeter.configure(testPlanTree);
         jmeter.run();
-        log.info("Test execution completed for plan: {}. Results written to {}", testPlanName, jtlPath.toAbsolutePath());
+        log.info("Test execution completed for plan: {}. Results written to {}", testPlanName,
+                jtlPath.toAbsolutePath());
     }
 
     /**
@@ -160,9 +156,10 @@ public class JMeterDriver {
      * successfully.
      * </p>
      *
-     * @param jtlFile target results file to prepare
+     * @param jtlPath target results file to prepare
      */
     private void prepareLogFile(Path jtlPath) {
+        // Delete the JTL only once per JVM to prevent mid-suite deletions in parallel runs
         if (JTL_INITIALIZED.compareAndSet(false, true)) {
             try {
                 if (Files.deleteIfExists(jtlPath)) {
@@ -184,6 +181,16 @@ public class JMeterDriver {
         }
     }
 
+    /**
+     * Resolve the JTL results path from configuration.
+     *
+     * <p>
+     * Reads the "jtl.path" property from TestConfiguration and falls back to
+     * "logs/test_result.jtl" when unset or blank.
+     * </p>
+     *
+     * @return path to the JTL/CSV results file
+     */
     private Path resolveJtlPath() {
         String configured = TestConfiguration.getProperty("jtl.path");
         String path = (configured != null && !configured.isBlank()) ? configured : "logs/test_result.jtl";

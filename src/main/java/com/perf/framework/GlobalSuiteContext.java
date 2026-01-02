@@ -17,7 +17,6 @@ public class GlobalSuiteContext {
     private TestPlan testPlan;
 
     private GlobalSuiteContext() {
-        // Private constructor to enforce singleton usage
     }
 
     /**

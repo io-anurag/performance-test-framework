@@ -1,32 +1,47 @@
-package com.perf.framework;
+package com.perf.reporting;
 
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import com.aventstack.extentreports.Status;
 import com.aventstack.extentreports.reporter.ExtentSparkReporter;
 import com.aventstack.extentreports.reporter.configuration.Theme;
+import com.perf.framework.TestConfiguration;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestWatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
 /**
  * JUnit 5 extension that wires ExtentReports into the test lifecycle.
  *
- * <p>Initializes a single Extent report per run, creates a test node per method, and
- * logs pass/fail/skip outcomes. Report appearance and path can be configured via
- * {@link TestConfiguration} properties (e.g., report.path, report.title, report.name, report.theme).</p>
+ * <p>
+ * Initializes a single Extent report per run, creates a test node per method,
+ * and logs pass/fail/skip outcomes. Report appearance and path can be
+ * configured
+ * via {@link TestConfiguration} properties (e.g., report.path, report.title,
+ * report.name, report.theme).
+ * </p>
+ * 
+ * <p>
+ * Thread Safety: Uses ThreadLocal to maintain test context in multi-threaded
+ * scenarios,
+ * ensuring each test thread has its own ExtentTest instance.
+ * </p>
  */
 public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback, TestWatcher, BeforeEachCallback {
-
+    protected static final Logger log = LoggerFactory.getLogger(ExtentReportListener.class);
     private static ExtentReports extent;
     private static final ThreadLocal<ExtentTest> test = new ThreadLocal<>();
 
     /**
      * Returns the current Extent test node for logging.
+     * This method is thread-safe and returns the test instance for the current
+     * thread.
      *
      * @return the active {@link ExtentTest}, or null if not yet initialized
      */
@@ -34,6 +49,10 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
         return test.get();
     }
 
+    /**
+     * Initializes the ExtentReports instance if not already initialized.
+     * This method is idempotent and can be called multiple times safely.
+     */
     public static void initReport() {
         if (extent == null) {
             String reportPath = TestConfiguration.getProperty("report.path");
@@ -42,30 +61,11 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
             String themeStr = TestConfiguration.getProperty("report.theme");
             Theme theme = "DARK".equalsIgnoreCase(themeStr) ? Theme.DARK : Theme.STANDARD;
 
-                // Compact, clean styling for tabular data and badges
-                String customCss = """
-                    body, .table { font-size: 13px; }
-                    .table-sm.table-bordered { border: 1px solid #e0e0e0; }
-                    .table-sm.table-bordered td, .table-sm.table-bordered th { padding: 6px 8px; }
-                    .table-sm.table-bordered thead tr { background: #f4f6f8; }
-                    .table-sm.table-bordered tbody tr:nth-child(even) { background: #fafafa; }
-                    .badge-method { color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 600; font-size: 11px; }
-                    .col-url { max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                    .badge.white-text.green { background: #2e7d32; }
-                    .badge.white-text.red { background: #c62828; }
-                    .detail-body .table { margin-bottom: 8px; }
-                    .test-contents .card, .test-contents .table { box-shadow: none; }
-                    .badge.badge-default { background: #e0e0e0; color: #424242; }
-                    .badge.badge-success { background: #2e7d32; }
-                    .badge.badge-danger { background: #c62828; }
-                    .badge.badge-primary { background: #1565c0; }
-                    """;
-
             ExtentSparkReporter spark = new ExtentSparkReporter(reportPath);
             spark.config().setTheme(theme);
             spark.config().setDocumentTitle(reportTitle);
             spark.config().setReportName(reportName);
-                spark.config().setCss(customCss);
+            spark.config().setCss(HtmlTemplates.CUSTOM_CSS);
 
             extent = new ExtentReports();
             extent.attachReporter(spark);
@@ -74,6 +74,11 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
         }
     }
 
+    /**
+     * Creates a new test node in the report.
+     *
+     * @param testName the name of the test to create
+     */
     public static void createTest(String testName) {
         if (extent != null) {
             ExtentTest extentTest = extent.createTest(testName);
@@ -81,9 +86,38 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
         }
     }
 
+    /**
+     * Flushes the report to disk.
+     */
     public static void flushReport() {
         if (extent != null) {
             extent.flush();
+        }
+    }
+
+    /**
+     * Ensures a test node exists for the current context.
+     * Creates a new test if one doesn't exist in the current thread.
+     *
+     * @param context JUnit extension context
+     */
+    private void ensureTestExists(ExtensionContext context) {
+        if (test.get() == null) {
+            test.set(extent.createTest(context.getDisplayName()));
+        }
+    }
+
+    /**
+     * Executes a post-test command if configured.
+     * Logs errors to System.err instead of silently swallowing them.
+     *
+     * @param command the command to execute
+     */
+    private void executePostTestCommand(String command) {
+        try {
+            SystemUtils.executeShellCommand(command);
+        } catch (Exception e) {
+            log.error("Failed to execute post-test command {} {}", command, e.getMessage());
         }
     }
 
@@ -127,10 +161,7 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testSuccessful(ExtensionContext context) {
-        if (test.get() == null) {
-            ExtentTest extentTest = extent.createTest(context.getDisplayName());
-            test.set(extentTest);
-        }
+        ensureTestExists(context);
         getTest().log(Status.PASS, "Test Passed");
     }
 
@@ -142,10 +173,7 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testAborted(ExtensionContext context, Throwable cause) {
-        if (test.get() == null) {
-            ExtentTest extentTest = extent.createTest(context.getDisplayName());
-            test.set(extentTest);
-        }
+        ensureTestExists(context);
         getTest().log(Status.SKIP, "Test Aborted: " + cause.getMessage());
     }
 
@@ -157,11 +185,18 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
      */
     @Override
     public void testFailed(ExtensionContext context, Throwable cause) {
-        if (test.get() == null) {
-            ExtentTest extentTest = extent.createTest(context.getDisplayName());
-            test.set(extentTest);
+        ensureTestExists(context);
+
+        String errorMsg = cause.getMessage();
+        if (errorMsg == null || errorMsg.trim().isEmpty()) {
+            errorMsg = cause.getClass().getSimpleName();
+            Throwable rootCause = cause.getCause();
+            if (rootCause != null && rootCause.getMessage() != null && !rootCause.getMessage().trim().isEmpty()) {
+                errorMsg += ": " + rootCause.getMessage();
+            }
         }
-        getTest().log(Status.FAIL, "Test Failed: " + cause.getMessage());
+
+        getTest().log(Status.FAIL, "Test Failed: " + errorMsg);
         getTest().fail(cause);
     }
 
@@ -177,20 +212,9 @@ public class ExtentReportListener implements BeforeAllCallback, AfterAllCallback
             extent.flush();
         }
 
-        // Also run the hook command if configured (preserving previous functionality)
         String postTestCommand = TestConfiguration.getProperty("post.test.command");
         if (postTestCommand != null && !postTestCommand.isEmpty()) {
-            try {
-                ProcessBuilder processBuilder = new ProcessBuilder();
-                if (System.getProperty("os.name").toLowerCase().contains("win")) {
-                    processBuilder.command("cmd.exe", "/c", postTestCommand);
-                } else {
-                    processBuilder.command("sh", "-c", postTestCommand);
-                }
-                processBuilder.start().waitFor();
-            } catch (Exception e) {
-                // Ignore silent failure for hooks in this listener
-            }
+            executePostTestCommand(postTestCommand);
         }
     }
 }

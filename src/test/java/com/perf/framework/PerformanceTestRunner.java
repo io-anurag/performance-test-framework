@@ -1,5 +1,6 @@
 package com.perf.framework;
 
+import com.perf.reporting.ExtentReportJMeterListener;
 import org.apache.jorphan.collections.HashTree;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,16 +35,21 @@ public class PerformanceTestRunner {
      * @throws RuntimeException if execution fails
      */
     public void runTest(HashTree testPlanTree, String testPlanName) {
-        // Add Extent Report Listener
         ExtentReportJMeterListener extentListener = new ExtentReportJMeterListener();
+        // Attach listener to the root element so it receives events from the entire plan
         testPlanTree.add(testPlanTree.getArray()[0], extentListener);
 
         try {
             log.info("Starting Test Execution: {}", testPlanName);
             driver.runTest(testPlanTree, testPlanName);
-
-            // Allow time for async results if any, then flush
             extentListener.flush();
+
+            if (extentListener.hasFailures()) {
+                String errorMsg = "Test execution contained failures. Check the report for details.";
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+
             log.info("Test Execution Finished: {}", testPlanName);
         } catch (Throwable t) {
             log.error("Test Execution Failed: {}", testPlanName, t);
