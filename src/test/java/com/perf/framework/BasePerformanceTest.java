@@ -2,11 +2,14 @@ package com.perf.framework;
 
 import org.apache.jmeter.control.LoopController;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
-import org.apache.jmeter.testelement.TestElement;
+
 import org.apache.jmeter.testelement.TestPlan;
 import org.apache.jmeter.threads.ThreadGroup;
 import org.apache.jorphan.collections.HashTree;
 import org.apache.jorphan.collections.ListedHashTree;
+import org.apache.jmeter.protocol.http.control.HeaderManager;
+import com.perf.reporting.ExtentReportListener;
+import org.apache.jmeter.extractor.JSR223PostProcessor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,83 +24,24 @@ public abstract class BasePerformanceTest {
     protected PerformanceTestRunner runner;
 
     /**
-     * Initializes a base test with a ready-to-use {@link PerformanceTestRunner} and reporting extension.
+     * Initializes a base test with a ready-to-use {@link PerformanceTestRunner} and
+     * reporting extension.
      * Keeps test classes lightweight by centralizing common setup.
      */
     public BasePerformanceTest() {
-        log.info("Initializing BasePerformanceTest...");
+        log.info("Initializing Base Performance Test...");
         this.runner = new PerformanceTestRunner();
-    }
-
-    /**
-     * Creates a JMeter TestPlan with the specified name.
-     */
-    protected TestPlan createTestPlan(String name) {
-        return new TestPlan(name);
-    }
-
-    /**
-     * Creates a ThreadGroup with the specified configuration.
-     *
-     * @param threads        number of virtual users
-     * @param rampUp         ramp-up time in seconds
-     * @param loopController loop controller for the group
-     * @return configured thread group
-     */
-    protected ThreadGroup createThreadGroup(int threads, int rampUp, LoopController loopController) {
-        ThreadGroup threadGroup = new ThreadGroup();
-        threadGroup.setName("Thread Group");
-        threadGroup.setNumThreads(threads);
-        threadGroup.setRampUp(rampUp);
-        threadGroup.setSamplerController(loopController);
-        return threadGroup;
-    }
-
-    /**
-     * Creates a LoopController with the specified number of loops.
-     *
-     * @param loops number of iterations per thread
-     * @return initialized loop controller
-     */
-    protected LoopController createLoopController(int loops) {
-        LoopController loopController = new LoopController();
-        loopController.setLoops(loops);
-        loopController.setFirst(true);
-        loopController.initialize();
-        return loopController;
-    }
-
-    /**
-     * Creates an HTTP Sampler with the specified configuration.
-     *
-     * @param name   sampler name for reporting
-     * @param domain target host (without protocol)
-     * @param port   target port
-     * @param path   request path
-     * @param method HTTP method (e.g., GET, POST)
-     * @return configured HTTP sampler
-     */
-    protected HTTPSamplerProxy createHttpSampler(String name, String domain, int port, String path, String method) {
-        HTTPSamplerProxy httpSampler = new HTTPSamplerProxy();
-        httpSampler.setDomain(domain);
-        httpSampler.setPort(port);
-        httpSampler.setPath(path);
-        httpSampler.setMethod(method);
-        httpSampler.setName(name);
-
-        // Set required properties for the sampler
-        httpSampler.setProperty(TestElement.TEST_CLASS, HTTPSamplerProxy.class.getName());
-        httpSampler.setProperty(TestElement.GUI_CLASS,
-                org.apache.jmeter.protocol.http.control.gui.HttpTestSampleGui.class.getName());
-
-        return httpSampler;
     }
 
     /**
      * Executes the test plan and handles errors appropriately.
      *
-     * <p>Augments the tree with an ExtentReport listener for unified reporting, then delegates to
-     * {@link PerformanceTestRunner} for execution. Wraps any thrown errors to fail the test with context.</p>
+     * <p>
+     * Augments the tree with an ExtentReport listener for unified reporting, then
+     * delegates to
+     * {@link PerformanceTestRunner} for execution. Wraps any thrown errors to fail
+     * the test with context.
+     * </p>
      *
      * @param testPlanTree The JMeter test plan tree to execute
      * @param testPlanName Name of the test plan for logging
@@ -108,78 +52,207 @@ public abstract class BasePerformanceTest {
     }
 
     /**
-     * Reads an integer property from config, with a default value.
+     * Builds and runs a simple single-sampler HTTP plan using provided or defaulted
+     * concurrency settings.
      *
-     * @param key          property key
-     * @param defaultValue value to use when the property is absent
-     * @return integer value or the default
+     * @param planName name of the plan (used for root TestPlan and reporting)
+     * @param domain   target host (without protocol)
+     * @param path     request path
+     * @param method   HTTP method (e.g., GET, POST)
+     * @param threads  number of virtual users (null to use config default)
+     * @param loops    iterations per thread (null to use config default)
+     * @param rampUp   ramp-up time in seconds (null to use config default)
      */
-    protected int getIntProperty(String key, int defaultValue) {
-        return TestConfiguration.getIntProperty(key, defaultValue);
+    protected void runSimpleHttpPlan(String planName, String domain, String path, String method, Integer threads,
+            Integer loops, Integer rampUp) {
+        HashTree planTree = buildSimpleHttpPlan(planName, domain, path, method, threads, loops, rampUp);
+        runTest(planTree, planName);
     }
 
     /**
-     * Reads a string property from config, with a default value.
+     * Build a minimal TestPlan → ThreadGroup → HTTP Sampler tree for a single
+     * request.
      *
-     * @param key          property key
-     * @param defaultValue value to use when the property is absent
-     * @return configured value or the default
+     * @param planName name of the plan (used for root TestPlan and reporting)
+     * @param domain   target host (without protocol)
+     * @param path     request path
+     * @param method   HTTP method (e.g., GET, POST)
+     * @param threads  number of virtual users (null to use config default)
+     * @param loops    iterations per thread (null to use config default)
+     * @param rampUp   ramp-up time in seconds (null to use config default)
+     * @return HashTree representing the plan ready for execution
      */
-    protected String getProperty(String key, String defaultValue) {
-        return TestConfiguration.getProperty(key, defaultValue);
-    }
+    protected HashTree buildSimpleHttpPlan(String planName, String domain, String path, String method, Integer threads,
+            Integer loops, Integer rampUp) {
+        int finalThreads = (threads != null) ? threads : TestConfiguration.getIntProperty("threads");
+        int finalLoops = (loops != null) ? loops : TestConfiguration.getIntProperty("loops");
+        int finalRampUp = (rampUp != null) ? rampUp : TestConfiguration.getIntProperty("rampUp");
 
-    /**
-     * Reads a string property from config.
-     *
-     * @param key property key
-     * @return configured value or {@code null} if missing
-     */
-    protected String getProperty(String key) {
-        return TestConfiguration.getProperty(key);
-    }
-
-    /**
-     * Executes a simple HTTP performance test using the provided configuration.
-     *
-     * @param planName Test plan name
-     * @param domain   Target domain
-     * @param port     Target port
-     * @param path     Request path
-     * @param method   HTTP method
-     * @param threads  Number of threads (users). If null, reads from config.
-     * @param loops    Number of loops per thread. If null, reads from config.
-     * @param rampUp   Ramp-up time in seconds. If null, reads from config.
-     */
-    protected void runHttpTest(String planName, String domain, int port, String path, String method, Integer threads, Integer loops, Integer rampUp) {
-        int finalThreads = (threads != null) ? threads : getIntProperty("threads", 1);
-        int finalLoops = (loops != null) ? loops : getIntProperty("loops", 1);
-        int finalRampUp = (rampUp != null) ? rampUp : getIntProperty("rampUp", 1);
-
-        TestPlan testPlan = createTestPlan(planName);
-        LoopController loopController = createLoopController(finalLoops);
-        ThreadGroup threadGroup = createThreadGroup(finalThreads, finalRampUp, loopController);
-        HTTPSamplerProxy httpSampler = createHttpSampler("Request " + path, domain, port, path, method);
+        TestPlan testPlan = TestPlanFactory.createTestPlan(planName);
+        LoopController loopController = TestPlanFactory.createLoopController(finalLoops);
+        ThreadGroup threadGroup = TestPlanFactory.createThreadGroup(planName + " Thread Group", finalThreads,
+                finalRampUp, loopController);
+        HTTPSamplerProxy httpSampler = TestPlanFactory.createHttpSampler("Request " + path, domain, path, method);
+        JSR223PostProcessor logProcessor = isResponseLoggingEnabled()
+                ? TestPlanFactory.createResponseLogger("Response Logger")
+                : null;
 
         ListedHashTree testPlanTree = new ListedHashTree();
         testPlanTree.add(testPlan);
         HashTree threadGroupHashTree = testPlanTree.add(testPlan, threadGroup);
         threadGroupHashTree.add(httpSampler);
-
-        runTest(testPlanTree, planName);
+        if (logProcessor != null) {
+            threadGroupHashTree.add(logProcessor);
+        }
+        return testPlanTree;
     }
 
     /**
-     * Executes a simple HTTP performance test using default configuration from properties.
+     * Initialize a new global suite context and attach global headers.
      *
-     * @param planName Test plan name
-     * @param path     Request path
+     * <p>
+     * Creates a thread-local GlobalSuiteContext with the provided suite name and
+     * adds a HeaderManager populated from config.properties so headers apply to
+     * all requests in the suite.
+     * </p>
+     *
+     * @param suiteName logical name for the suite (appears in reports)
      */
-    protected void runHttpTest(String planName, String path) {
-        String domain = getProperty("target.domain", "httpbin.org");
-        int port = getIntProperty("target.port", 80);
-        String method = getProperty("target.method", "GET");
+    protected void startSuite(String suiteName) {
+        log.info("Starting new Test Suite: {}", suiteName);
+        GlobalSuiteContext.getInstance().initialize(suiteName);
 
-        runHttpTest(planName, domain, port, path, method, null, null, null);
+        // Attach global headers at test plan level (applied to all requests)
+        GlobalSuiteContext globalCtx = GlobalSuiteContext.getInstance();
+        ListedHashTree testPlanTree = globalCtx.getTestPlanTree();
+        TestPlan testPlan = globalCtx.getTestPlan();
+
+        HeaderManager globalHeaders = TestPlanFactory.createGlobalHeaderManager("Global Headers");
+        testPlanTree.add(testPlan, globalHeaders);
+
+        log.info("Global headers attached to test plan from config.properties");
+    }
+
+    /**
+     * Creates a new Thread Group and attaches it to the current Global Suite.
+     * 
+     * @param name    Name of this specific Thread Group
+     * @param threads Number of users
+     * @param rampUp  Ramp-up in seconds
+     * @param loops   Number of loops
+     * @return A TestContext scoped to this Thread Group (but attached to Global
+     *         Plan)
+     */
+    protected TestContext createSuiteThreadGroup(String name, int threads, int rampUp, int loops) {
+        GlobalSuiteContext globalCtx = GlobalSuiteContext.getInstance();
+        ListedHashTree testPlanTree = globalCtx.getTestPlanTree();
+        TestPlan testPlan = globalCtx.getTestPlan();
+
+        LoopController loopController = TestPlanFactory.createLoopController(loops);
+        ThreadGroup threadGroup = TestPlanFactory.createThreadGroup(name, threads, rampUp, loopController);
+
+        HashTree threadGroupTree = testPlanTree.add(testPlan, threadGroup);
+        attachStandardComponents(threadGroupTree, name);
+
+        return new TestContext(testPlanTree, threadGroupTree);
+    }
+
+    /**
+     * Executes the assembled Global Suite.
+     */
+    protected void runSuite() {
+        log.info("Executing Global Test Suite...");
+        ListedHashTree globalTree = GlobalSuiteContext.getInstance().getTestPlanTree();
+        String suiteName = GlobalSuiteContext.getInstance().getTestPlan().getName();
+        runner.runTest(globalTree, suiteName);
+        GlobalSuiteContext.getInstance().clear();
+    }
+
+    private void attachStandardComponents(HashTree threadGroupTree, String name) {
+        if (isResponseLoggingEnabled()) {
+            JSR223PostProcessor logProcessor = TestPlanFactory.createResponseLogger(name + " Logger");
+            threadGroupTree.add(logProcessor);
+        }
+    }
+
+    private boolean isResponseLoggingEnabled() {
+        return Boolean.parseBoolean(TestConfiguration.getProperty("response.logging.enabled", "false"));
+    }
+
+    /**
+     * Adds a TransactionController to the parent tree and returns its HashTree for
+     * adding child samplers.
+     *
+     * @param parentTree     The parent HashTree (typically a thread group)
+     * @param name           Name of the transaction (appears in reports)
+     * @param generateParent If true, generates a parent sample for transaction
+     *                       metrics
+     * @return HashTree for the controller, to which samplers can be added
+     */
+    protected HashTree addTransactionController(HashTree parentTree, String name, boolean generateParent) {
+        org.apache.jmeter.control.TransactionController controller = TestPlanFactory.createTransactionController(name,
+                generateParent);
+        return parentTree.add(controller);
+    }
+
+    /**
+     * Adds a GenericController (SimpleController) to the parent tree for basic
+     * grouping.
+     *
+     * @param parentTree The parent HashTree (typically a thread group)
+     * @param name       Name of the controller
+     * @return HashTree for the controller, to which samplers can be added
+     */
+    protected HashTree addSimpleController(HashTree parentTree, String name) {
+        org.apache.jmeter.control.GenericController controller = TestPlanFactory.createSimpleController(name);
+        return parentTree.add(controller);
+    }
+
+    /**
+     * Generic method to add any controller to a parent tree.
+     *
+     * @param parentTree The parent HashTree
+     * @param controller The controller to add
+     * @return HashTree for the controller
+     */
+    protected HashTree addController(HashTree parentTree, org.apache.jmeter.control.GenericController controller) {
+        return parentTree.add(controller);
+    }
+
+    /**
+     * Adds a ResponseCodeAssertion to a sampler to validate HTTP response codes.
+     *
+     * @param samplerTree   The sampler's HashTree
+     * @param expectedCodes Expected response codes (e.g., "200", "201")
+     */
+    protected void addResponseCodeAssertion(HashTree samplerTree, String... expectedCodes) {
+        org.apache.jmeter.assertions.ResponseAssertion assertion = TestPlanFactory
+                .createResponseCodeAssertion("Response Code Assertion", expectedCodes);
+        samplerTree.add(assertion);
+    }
+
+    /**
+     * Adds a DurationAssertion to a sampler to validate response time thresholds.
+     *
+     * @param samplerTree   The sampler's HashTree
+     * @param maxDurationMs Maximum allowed duration in milliseconds
+     */
+    protected void addDurationAssertion(HashTree samplerTree, long maxDurationMs) {
+        org.apache.jmeter.assertions.DurationAssertion assertion = TestPlanFactory
+                .createDurationAssertion("Duration Assertion", maxDurationMs);
+        samplerTree.add(assertion);
+    }
+
+    /**
+     * Adds a named DurationAssertion to a sampler.
+     *
+     * @param samplerTree   The sampler's HashTree
+     * @param name          Name of the assertion
+     * @param maxDurationMs Maximum allowed duration in milliseconds
+     */
+    protected void addDurationAssertion(HashTree samplerTree, String name, long maxDurationMs) {
+        org.apache.jmeter.assertions.DurationAssertion assertion = TestPlanFactory.createDurationAssertion(name,
+                maxDurationMs);
+        samplerTree.add(assertion);
     }
 }

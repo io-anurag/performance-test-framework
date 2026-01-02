@@ -1,0 +1,6 @@
+{
+  "name": "User_${__time(yyyy-MM-dd_HH-mm-ss)}",
+  "gender": "male",
+  "email": "user_${__time(yyyyMMddHHmmss)}@testdomain.com",
+  "status": "active"
+}
