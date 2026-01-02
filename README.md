@@ -1,381 +1,221 @@
 # JMeter Java Performance Testing Framework
 
-A robust, configuration-driven performance testing framework that allows you to run Apache JMeter tests programmatically using Java and JUnit 5.
+A robust, code-first performance testing framework that enables you to define, configure, and execute Apache JMeter test plans programmatically using Java and JUnit 5.
 
-## Features
+## 📚 Documentation
 
-- **Programmatic JMeter Test Creation**: Build and execute JMeter test plans entirely in Java code
-- **JUnit 5 Integration**: Run performance tests as standard JUnit tests with IDE support
-- **Parallel Test Execution**: Tests run concurrently for faster execution
-- **ExtentReports Integration**: Beautiful, interactive HTML reports with detailed test execution information
-- **Configuration-Driven**: Externalize test parameters via properties files for easy environment switching
-- **Flexible Test Configuration**: Support for both global (config file) and local (test method) parameters
-- **Base Test Class Architecture**: Reusable base class with helper methods for rapid test development
-- **Test Lifecycle Hooks**: Execute custom commands before/after test execution
-- **Automatic Report Generation**: Reports are generated automatically after test execution
-- **Theme Support**: Standard and Dark theme options for reports
-- **Comprehensive Logging**: Logback-based logging with file output to `logs/` directory
-- **Clean Log Management**: Log files are automatically overwritten on each test run for clean results
+Detailed documentation is available in the `docs/` directory:
 
-## Prerequisites
+- 📖 **[Step-by-Step Test Creation Guide](docs/test_creation_guide.md)**: Start here! A complete tutorial for writing your first test.
+- 🏗️ **[Architecture Overview](docs/architecture.md)**: Deep dive into the framework's design, components, and execution flow.
+
+---
+
+## 🚀 Key Features
+
+- **Code-First Testing:** Write performance tests as standard Java code (JUnit 5) without needing the JMeter GUI.
+- **Dynamic Configuration:** Fully configurable via `config.properties` with support for global headers, environment switching, and overrides.
+- **Thread-Safe Context:** Built on `GlobalSuiteContext` to support parallel execution and complex thread group hierarchies.
+- **Rich Reporting:** Integrated **ExtentReports** generation with detailed breakdown of requests, assertions, and errors.
+- **Powerful Assertions:** Built-in helpers for response code and duration assertions (SLA enforcement).
+- **Dynamic Payload Support:** Load request bodies from external files and extract values (e.g., JSONPath) for correlation (Chaining requests).
+- **Clean Logging:** Automatic log rotation and JTL result generation.
+
+---
+
+## 🛠️ Prerequisites
 
 - **Java 17+**
 - **Maven 3.6+**
-- **Apache JMeter 5.6.3** (managed via Maven dependencies)
+- **Apache JMeter 5.6.3** (Managed automatically via Maven dependencies)
+- **IDE:** IntelliJ IDEA or Eclipse (Recommended)
 
-## Project Structure
+---
+
+## 📂 Project Structure
 
 ```
 jmeter-java-framework/
+├── docs/                                    # Detailed documentation
+│   ├── architecture.md                      # Framework architecture design
+│   └── test_creation_guide.md               # Step-by-step usage guide
 ├── src/
 │   ├── main/
 │   │   ├── java/com/perf/framework/
-│   │   │   ├── JMeterDriver.java           # Core JMeter execution engine
-│   │   │   ├── JMeterFrameworkException.java
-│   │   │   ├── TestConfiguration.java      # Properties reader utility
-│   │   │   └── TestPlanFactory.java        # Factory for creating JMeter Test Plans
+│   │   │   ├── BasePerformanceTest.java         # Base class for all tests
+│   │   │   ├── GlobalSuiteContext.java          # Thread-safe test context
+│   │   │   ├── JMeterDriver.java                # Engine wrapper
+│   │   │   ├── TestConfiguration.java           # Config reader
+│   │   │   └── TestPlanFactory.java             # Factory for JMeter elements
 │   │   └── resources/
-│   │       ├── config.properties           # Test configuration
-│   │       └── logback.xml                 # Logging configuration
+│   │       ├── config.properties                # Main configuration file
+│   │       └── logback.xml                      # Logging settings
 │   └── test/
-│       ├── java/com/perf/
-│       │   ├── framework/
-│       │   │   ├── BasePerformanceTest.java      # Abstract base class for tests
-│       │   │   ├── ExtentReportListener.java     # Report generation listener
-│       │   │   └── ExtentReportJMeterListener.java # JMeter listener for ExtentReports
-│       │   └── tests/
-│       │       ├── SampleTest.java               # Example performance test
-│       │       ├── SimulationTestWithGlobalDataTest.java # Tests using global config
-│       │       └── SimulationTestWithLocalDataTest.java  # Tests using local parameters
+│       ├── java/com/perf/tests/
+│       │   ├── GoRestAPITest.java               # 🏆 Flagship example (CRUD Workflow)
+│   │   │   ├── AssertionFailureTest.java        # Demo of assertion handling
+│   │   │   └── HierarchyDemoTest.java           # Demo of complex hierarchies
 │       └── resources/
-│           └── junit-platform.properties     # JUnit parallel execution config
-├── logs/                                    # Test execution logs (auto-created)
-│   ├── test-execution.log                  # Framework and JMeter logs
-│   └── test_result.jtl                     # JMeter test results (CSV)
-├── pom.xml
-└── README.md
+│           └── payloads/                        # JSON request bodies (e.g. create_user.json)
+├── logs/                                    # Execution logs & JTL results
+├── report/                                  # Generated HTML reports
+└── pom.xml
 ```
 
-## Getting Started
+---
 
-### 1. Clone the Repository
+## ⚙️ Configuration
 
-```bash
-git clone <repository-url>
-cd jmeter-java-framework
-```
+The framework is driven by `src/main/resources/config.properties`.
 
-### 2. Build the Project
+### Core Settings
 
-```bash
-mvn clean compile
-```
+```properties
+# Test Plan Identity
+test.plan.name=Performance Test Plan
 
-### 3. Run Sample Test
-
-```bash
-mvn test
-```
-
-### 4. View the Report
-
-After running tests, open the generated report:
-- **Location**: `report/performance-tests/test-report.html`
-- Simply double-click the file to open in your browser (no server required)
-
-## Configuration
-httpbin.org
-target.port=80
-target.path=/
+# Target API (Environment specific)
+target.protocol=https
+target.domain=gorest.co.in
+target.path=/public/v2
 target.method=GET
 
-# Load Parameters (Global Defaults)
-thread.count=1          # Number of virtual users
-loop.count=1            # Iterations per user
-ramp.up=1              # Ramp-up time in seconds
+# Global Headers (Applied to ALL requests)
+# Configure tokens here to apply them to every request automatically
+global.header.Authorization=Bearer Your_Token_Here
+global.header.Content-Type=application/json
+global.header.Accept=application/json
 ```
 
-### Writing Tests
+### Load Profile (Default Defaults)
 
-You can write tests that use global configuration or override parameters locally.
+These can be overridden per test method.
 
-**Using Global Configuration:**
-```java
-@Test
-@DisplayName("Standard Load Test (Global)")
-void testGlobalConfig() {
-    // Pass null for threads, loops, rampUp to use config.properties values
-    runHttpTest("Global Test", "httpbin.org", 80, "/get", "GET", null, null, null);
-}
+```properties
+thread.count=5          # Virtual Users
+loop.count=1            # Iterations
+ramp.up=2               # Ramp-up time (seconds)
 ```
 
-**Using Local Parameters:**
-```java
-@Test
-@DisplayName("Stress Test (Local)")
-void testLocalConfig() {
-    // Explicitly define threads=10, loops=5, rampUp=5
-    runHttpTest("Stress Test", "httpbin.org", 80, "/bytes/1024", "GET", 10, 5, 5);
-}
-target.method=GET
+### Reporting
 
-# Load Parameters
-thread.count=1          # Number of virtual users
-loop.count=1            # Iterations per user
-ramp.up=1              # Ramp-up time in seconds
-```
-
-### Report Configuration
 ```properties
 report.path=report/performance-tests/test-report.html
 report.title=Performance Test Report
-report.name=Performance Test Execution
-report.theme=STANDARD   # Options: STANDARD, DARK
+report.theme=STANDARD   # STANDARD or DARK
+jtl.path=logs/test_result.jtl
 ```
 
-### Test Hooks
-```properties
-post.test.command=echo "Tests finished!"
-```
+---
 
-## Writing Tests
+## 🏃 Running Tests
 
-### Basic Test Structure
-
-Tests extend `BasePerformanceTest` which provides helper methods and automatic reporting:
-
-```java
-package com.perf.tests;
-
-import com.perf.framework.BasePerformanceTest;
-import org.apache.jmeter.testelement.TestPlan;
-import org.apache.jmeter.threads.ThreadGroup;
-import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
-import org.apache.jorphan.collections.ListedHashTree;
-import org.junit.jupiter.api.Test;
-
-class MyPerformanceTest extends BasePerformanceTest {
-
-    @Test
-    void testApiEndpoint() {
-        // Read configuration
-        String testPlanName = getProperty("test.plan.name", "API Test");
-        String domain = getProperty("target.domain");
-        int threads = getIntProperty("thread.count", 10);
-        
-        // Build test plan using helper methods
-        TestPlan testPlan = createTestPlan(testPlanName);
-        LoopController loopController = createLoopController(5);
-        ThreadGroup threadGroup = createThreadGroup(threads, 10, loopController);
-        HTTPSamplerProxy httpSampler = createHttpSampler(
-            "API Request", 
-            domain, 
-            443, 
-            "/api/endpoint", 
-            "POST"
-        );
-        
-        // Assemble test plan tree
-        ListedHashTree testPlanTree = new ListedHashTree();
-        testPlanTree.add(testPlan);
-        testPlanTree.add(testPlan, threadGroup).add(httpSampler);
-        
-        // Execute test (with automatic error handling)
-        runTest(testPlanTree, testPlanName);
-    }
-}
-```
-
-### Available Helper Methods
-
-The `BasePerformanceTest` class provides:
-
-| Method | Description |
-|--------|-------------|
-| `createTestPlan(name)` | Creates a JMeter TestPlan |
-| `createLoopController(loops)` | Creates a loop controller |
-| `createThreadGroup(threads, rampUp, controller)` | Creates a thread group |
-| `createHttpSampler(name, domain, port, path, method)` | Creates an HTTP sampler |
-| `runTest(testPlanTree, testName)` | Executes test with error handling |
-| `getProperty(key, default)` | Reads string property from config |
-| `getIntProperty(key, default)` | Reads integer property from config |
-
-## Running Tests
+You can run tests using standard Maven commands.
 
 ### Run All Tests
+
 ```bash
 mvn clean test
 ```
 
-### Run Specific Test
+### Run a Specific Test Class
+
 ```bash
-mvn test -Dtest=SampleTest
+mvn test -Dtest=GoRestAPITest
 ```
 
-### With Custom Configuration
-You can override properties via system properties:
+### Run with Custom Parameters (Override Config)
+
+You can override any property from the command line:
+
 ```bash
-mvn test -Dtarget.domain=example.com -Dthread.count=50
+mvn test -Dtest=GoRestAPITest -Dthread.count=50 -Dtarget.domain=staging-api.com
 ```
 
-## Reports
+---
 
-### ExtentReports
+## 📝 Writing Tests
 
-The framework automatically generates ExtentReports after test execution:
+Tests extend `BasePerformanceTest` and rely on `TestPlanFactory`.
 
-- **Location**: Configured via `report.path` in `config.properties`
-- **Default**: `report/performance-tests/test-report.html`
-- **Features**:
-  - Test execution summary
-  - Pass/Fail status with details
-  - System information
-  - Execution timeline
-  - Theme customization (Standard/Dark)
+### Example: User Lifecycle Test
 
-### JMeter Results
+*(Simplified from `GoRestAPITest.java`)*
 
-Raw JMeter results are saved to:
-- **Location**: `logs/test_result.jtl` (CSV format)
-- This file contains detailed sampler results and can be imported into JMeter GUI for visualization
+```java
+@ExtendWith(ExtentReportListener.class)
+class MyApiTest extends BasePerformanceTest {
 
-## Logging
+    @Test
+    void testUserWorkflow() {
+        startSuite("User Workflow Suite");
 
-### Log Files
+        // 1. Define Load Profile
+        TestContext ctx = createSuiteThreadGroup("API Users", 10, 5, 2);
+        HashTree threadGroup = ctx.getThreadGroupTree();
 
-The framework uses Logback for comprehensive logging:
+        // 2. Add Transaction Controller
+        HashTree txn = addTransactionController(threadGroup, "Create User Flow", true);
 
-- **Framework Logs**: `logs/test-execution.log`
-  - Contains all framework and JMeter execution logs
-  - Includes timestamps, thread information, and log levels
-  - **Automatically overwritten** on each test run for clean results
-  
-- **JMeter Results**: `logs/test_result.jtl`
-  - CSV format with detailed test execution metrics
-  - Can be imported into JMeter GUI for analysis
-  - **Automatically overwritten** on each test run
+        // 3. Create Request (POST)
+        HTTPSamplerProxy createUser = TestPlanFactory.createHttpSampler(
+            "POST Create User", 
+            "gorest.co.in", 
+            "/public/v2/users", 
+            "POST"
+        );
+        
+        // 4. Add Payload & Assertions
+        // (See GoRestAPITest.java for full payload handling example)
+        HashTree createTree = txn.add(createUser);
+        addResponseCodeAssertion(createTree, "201");
+        
+        // 5. Extract ID for next steps
+        TestPlanFactory.createJsonExtractor("Extract ID", "userId", "$.id", "0");
 
-### Log Configuration
-
-Logging is configured in `src/main/resources/logback.xml`:
-
-```xml
-<configuration>
-    <!-- Console output -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <!-- File output (overwrites on each run) -->
-    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>logs/test-execution.log</file>
-        <append>false</append>  <!-- Overwrite mode -->
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <root level="INFO">
-        <appender-ref ref="CONSOLE" />
-        <appender-ref ref="FILE" />
-    </root>
-</configuration>
+        // 6. Run
+        runSuite();
+    }
+}
 ```
 
-### Customizing Logs
+See [Test Creation Guide](docs/test_creation_guide.md) for full details on:
 
-To modify logging behavior:
+- Adding Payloads (JSON files)
+- Dynamic Data Extraction (JSONPath)
+- Transaction Controllers
+- Assertions
 
-1. **Change log level**: Edit `<root level="INFO">` to `DEBUG`, `WARN`, or `ERROR`
-2. **Change log file location**: Modify `<file>logs/test-execution.log</file>`
-3. **Enable append mode**: Change `<append>false</append>` to `<append>true</append>`
-4. **Customize format**: Edit the `<pattern>` element
+---
 
-## Advanced Features
+## 📊 Reporting
 
-### Custom Test Hooks
+### HTML Report
 
-Execute commands after test completion by configuring `post.test.command`:
+Located at `report/performance-tests/test-report.html`.
 
-```properties
-post.test.command=./scripts/notify-team.sh
-```
+- **Summary Dashboard:** Pass/Fail rates, Execution time.
+- **Detailed Logs:** Request/Response details for failures.
+- **Statistics:** Min/Max/Avg response times.
 
-The hook is executed automatically by the `ExtentReportListener`.
+### JTL Results
 
-### Adding More Samplers
+Located at `logs/test_result.jtl`.
 
-You can add other JMeter samplers (JDBC, FTP, etc.) by creating helper methods in your test classes or extending `BasePerformanceTest`.
+- Standard JMeter CSV format.
+- Can be imported into the JMeter GUI for advanced analysis.
 
-### CI/CD Integration
+---
 
-Example GitHub Actions workflow:
+## 🤝 Contributing
 
-```yaml
-name: Performance Tests
+1. Fork the repo.
+2. Create a feature branch.
+3. Commit changes.
+4. Push and create a Pull Request.
 
-on: [push]
+---
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK 17
-        uses: actions/setup-java@v2
-        with:
-          java-version: '17'
-      - name: Run Tests
-        run: mvn clean test
-      - name: Upload Report
-        uses: actions/upload-artifact@v2
-        with:
-          name: extent-report
-          path: report/performance-tests/
-```
+## 📄 License
 
-## Troubleshooting
-
-### Tests Not Running
-- Ensure JUnit dependencies are in `pom.xml`
-- Verify test classes are in `src/test/java`
-- Check that test methods are annotated with `@Test`
-
-### Report Not Generated
-- Check `report.path` in `config.properties`
-- Ensure the directory exists or can be created
-- Verify `ExtentReportListener` is registered on test class
-
-### JMeter Initialization Errors
-- The framework automatically handles JMeter home directory creation and property initialization
-- JMeter properties are loaded before the engine is created to prevent initialization warnings
-- Ensure all JMeter dependencies are downloaded by Maven
-
-### Missing Log Files
-- Log files are created in the `logs/` directory automatically
-- If the directory doesn't exist, it will be created on first test run
-- Check file permissions if logs aren't being written
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Apache JMeter - https://jmeter.apache.org/
-- ExtentReports - https://www.extentreports.com/
-- JUnit 5 - https://junit.org/junit5/
-
-## Contact
-
-For questions or support, please open an issue in the repository.
+MIT License.
