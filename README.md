@@ -17,6 +17,7 @@ Detailed documentation is available in the `docs/` directory:
 - **Dynamic Configuration:** Fully configurable via `config.properties` with support for global headers, environment switching, and overrides.
 - **Thread-Safe Context:** Built on `GlobalSuiteContext` to support parallel execution and complex thread group hierarchies.
 - **Rich Reporting:** Integrated **ExtentReports** generation with detailed breakdown of requests, assertions, and errors.
+- **Performance Graphs:** Automatic PNG graph generation (Response Times, TPS, Percentiles, etc.) via **jmeter-graph-tool-maven-plugin**.
 - **Powerful Assertions:** Built-in helpers for response code and duration assertions (SLA enforcement).
 - **Dynamic Payload Support:** Load request bodies from external files and extract values (e.g., JSONPath) for correlation (Chaining requests).
 - **Clean Logging:** Automatic log rotation and JTL result generation.
@@ -58,7 +59,9 @@ jmeter-java-framework/
 │       └── resources/
 │           └── payloads/                        # JSON request bodies (e.g. create_user.json)
 ├── logs/                                    # Execution logs & JTL results
-├── report/                                  # Generated HTML reports
+├── report/
+│   ├── performance-tests/                   # ExtentReports HTML
+│   └── graphs/                              # Performance PNG graphs
 └── pom.xml
 ```
 
@@ -203,6 +206,25 @@ Located at `logs/test_result.jtl`.
 
 - Standard JMeter CSV format.
 - Can be imported into the JMeter GUI for advanced analysis.
+
+### Performance Graphs
+
+Generated in `report/graphs/` after running `mvn verify`.
+
+| Graph | Description |
+|-------|-------------|
+| `ResponseTimesOverTime.png` | Response time trends |
+| `TransactionsPerSecond.png` | Throughput (TPS) |
+| `ResponseCodesPerSecond.png` | HTTP status codes over time |
+| `ResponseTimesPercentiles.png` | P50, P90, P99 latencies |
+| `ThreadsStateOverTime.png` | Active virtual users |
+| `AggregateReport.csv` | Statistical summary |
+
+**Generate graphs:**
+
+```bash
+mvn clean verify -Dtest=YourTestClass
+```
 
 ---
 

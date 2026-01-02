@@ -796,6 +796,20 @@ After test execution:
    - Raw JMeter output
    - Can be opened in JMeter GUI for analysis
 
+3. **Performance Graphs:** `report/graphs/` (after `mvn verify`)
+   - `ResponseTimesOverTime.png` - Response time trends
+   - `TransactionsPerSecond.png` - Throughput (TPS)
+   - `ResponseCodesPerSecond.png` - HTTP status codes
+   - `ResponseTimesPercentiles.png` - P50, P90, P99 latencies
+   - `ThreadsStateOverTime.png` - Active virtual users
+   - `AggregateReport.csv` - Statistical summary
+
+**Generate all reports including graphs:**
+
+```bash
+mvn clean verify -Dtest=YourTestClass
+```
+
 ---
 
 ## Troubleshooting

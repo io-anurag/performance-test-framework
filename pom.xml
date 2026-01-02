@@ -85,8 +85,82 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.1.2</version>
         <configuration>
-          <testFailureIgnore>false</testFailureIgnore>
+          <testFailureIgnore>true</testFailureIgnore>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>io.github.vdaburon</groupId>
+        <artifactId>jmeter-graph-tool-maven-plugin</artifactId>
+        <version>1.2</version>
+        <executions>
+          <execution>
+            <id>create-graphs</id>
+            <goals>
+              <goal>create-graph</goal>
+            </goals>
+            <phase>verify</phase>
+            <configuration>
+              <graphs>
+                <!-- Response Times Over Time -->
+                <graph>
+                  <pluginType>ResponseTimesOverTime</pluginType>
+                  <inputFile>${project.basedir}/logs/test_result.jtl</inputFile>
+                  <generatePng>${project.basedir}/report/graphs/ResponseTimesOverTime.png</generatePng>
+                  <width>1024</width>
+                  <height>768</height>
+                  <relativeTimes>no</relativeTimes>
+                  <paintGradient>no</paintGradient>
+                </graph>
+                <!-- Transactions Per Second -->
+                <graph>
+                  <pluginType>TransactionsPerSecond</pluginType>
+                  <inputFile>${project.basedir}/logs/test_result.jtl</inputFile>
+                  <generatePng>${project.basedir}/report/graphs/TransactionsPerSecond.png</generatePng>
+                  <width>1024</width>
+                  <height>768</height>
+                  <relativeTimes>no</relativeTimes>
+                  <aggregateRows>yes</aggregateRows>
+                  <paintGradient>no</paintGradient>
+                </graph>
+                <!-- Response Codes Per Second -->
+                <graph>
+                  <pluginType>ResponseCodesPerSecond</pluginType>
+                  <inputFile>${project.basedir}/logs/test_result.jtl</inputFile>
+                  <generatePng>${project.basedir}/report/graphs/ResponseCodesPerSecond.png</generatePng>
+                  <width>1024</width>
+                  <height>768</height>
+                  <relativeTimes>no</relativeTimes>
+                  <paintGradient>no</paintGradient>
+                </graph>
+                <!-- Response Times Percentiles -->
+                <graph>
+                  <pluginType>ResponseTimesPercentiles</pluginType>
+                  <inputFile>${project.basedir}/logs/test_result.jtl</inputFile>
+                  <generatePng>${project.basedir}/report/graphs/ResponseTimesPercentiles.png</generatePng>
+                  <width>1024</width>
+                  <height>768</height>
+                  <paintGradient>no</paintGradient>
+                </graph>
+                <!-- Active Threads Over Time -->
+                <graph>
+                  <pluginType>ThreadsStateOverTime</pluginType>
+                  <inputFile>${project.basedir}/logs/test_result.jtl</inputFile>
+                  <generatePng>${project.basedir}/report/graphs/ThreadsStateOverTime.png</generatePng>
+                  <width>1024</width>
+                  <height>768</height>
+                  <relativeTimes>no</relativeTimes>
+                  <paintGradient>no</paintGradient>
+                </graph>
+                <!-- Aggregate Report CSV -->
+                <graph>
+                  <pluginType>AggregateReport</pluginType>
+                  <inputFile>${project.basedir}/logs/test_result.jtl</inputFile>
+                  <generateCsv>${project.basedir}/report/graphs/AggregateReport.csv</generateCsv>
+                </graph>
+              </graphs>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

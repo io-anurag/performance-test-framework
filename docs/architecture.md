@@ -24,6 +24,7 @@ This framework is a **programmatic performance testing solution** built with **J
 | **Test Runner** | JUnit 5 | Jupiter |
 | **Build Tool** | Maven | 3.x |
 | **Reporting** | ExtentReports | 5.x |
+| **Graph Generation** | jmeter-graph-tool-maven-plugin | 1.2 |
 | **Logging** | SLF4J | - |
 
 ---
@@ -64,6 +65,12 @@ graph TD
         EJMTL[ExtentReportJMeterListener] -->|JMeter results| ERPT
         EJMTL -->|extracts| SR[SampleResult + AssertionResult]
         ERPT -->|generates| HTML[HTML Report]
+    end
+
+    subgraph "Graph Generation (Maven Plugin)"
+        JTL[JTL Result File] -->|input| GTP[jmeter-graph-tool-maven-plugin]
+        GTP -->|generates| PNG[PNG Graphs]
+        GTP -->|generates| CSV[Aggregate Report CSV]
     end
 ```
 
@@ -730,13 +737,13 @@ addTransactionController(tree, "txn1", true);  // Not descriptivecreateHttpSampl
 
 ## 12. Future Enhancements
 
+- [x] ~~Performance trend analysis over time~~ → Implemented via jmeter-graph-tool-maven-plugin
 - [ ] Support for CSV data sets
 - [ ] Support for JSON extractors and variables
 - [ ] Pre/post processors (BeanShell, JSR223)
 - [ ] Timer support (Constant, Gaussian, etc.)
 - [ ] Distributed execution support
 - [ ] Integration with CI/CD pipelines (Jenkins, GitLab CI)
-- [ ] Performance trend analysis over time
 - [ ] Custom assertion types
 
 ---
