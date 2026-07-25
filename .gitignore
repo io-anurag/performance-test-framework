@@ -6,3 +6,4 @@ target/
 .qodo/
 .vscode/
 .DS_Store
+logs/
